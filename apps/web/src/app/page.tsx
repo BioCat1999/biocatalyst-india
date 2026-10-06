@@ -4,7 +4,7 @@ import type { EventType } from "@biocatalyst/types";
 import { EventCard } from "@/components/EventCard";
 import { FilterChips } from "@/components/FilterChips";
 
-export const dynamic = "force-static";
+export const revalidate = 3600;
 
 async function FeedList({ eventType }: { eventType?: EventType }) {
   const { items, nextCursor } = await listEvents(eventType ? { eventType } : {}, undefined, 30);
