@@ -1,0 +1,93 @@
+/**
+ * Seeded fixture data for Milestone 0/1.
+ *
+ * IMPORTANT — SEED FIXTURE DISCLAIMER:
+ * Every record in this file is an illustrative fixture for local development
+ * and UI prototyping. Companies, tickers, drugs, trials, events, source URLs,
+ * timestamps and market-reaction numbers are realistic-looking placeholders —
+ * they are NOT real announcements, NOT real trial outcomes, and NOT real
+ * market data. The web app surfaces a "Seed fixture" badge wherever this
+ * data is rendered. Milestone 3+ replaces these fixtures with verified,
+ * source-backed records via compliant source adapters.
+ *
+ * Spec references: §1 (every fact needs source URL + timestamp — provided
+ * below as fixture URLs), §4 (seeded JSON for M1 prototype), §5 (canonical
+ * model), §6 (event taxonomy). Market reactions are NOT seeded here anymore:
+ * Milestone 5 computes them from the fixture price series via the
+ * market-reaction pipeline (see @biocatalyst/market-data and seed-db.ts).
+ */
+import type {
+  CatalystEvent,
+  Company,
+  Drug,
+  EventType,
+  SourceRecord,
+  Trial,
+  TrialPhase,
+  TrialStatus,
+} from "@biocatalyst/types";
+
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+
+/** Build a source record with a retrieval timestamp shortly after publish. */
+function src(
+  id: string,
+  title: string,
+  publisher: string,
+  url: string,
+  publishedAt: string,
+  retrievedAt: string,
+  isPrimary: boolean,
+): SourceRecord {
+  return { id, title, publisher, url, publishedAt, retrievedAt, isPrimary };
+}
+
+/* ------------------------------------------------------------------ */
+/* Companies (10 India-linked pharma/biotech)                           */
+/* ------------------------------------------------------------------ */
+
+export const companies: Company[] = [
+  {
+    id: "co-sun-pharma",
+    slug: "sun-pharma",
+    canonicalName: "Sun Pharmaceutical Industries Ltd",
+    description:
+      "India's largest pharmaceutical company by market capitalisation, with a global generics business and a growing innovative portfolio in dermatology, ophthalmology and oncology.",
+    country: "India",
+    website: "https://www.sunpharma.com",
+    aliases: ["Sun Pharma", "Sun Pharmaceuticals", "Sun Pharma Industries"],
+    securities: [
+      { exchange: "NSE", ticker: "SUNPHARMA", currency: "INR" },
+      { exchange: "BSE", ticker: "SUNPHARMA", currency: "INR" },
+    ],
+  },
+  {
+    id: "co-dr-reddys",
+    slug: "dr-reddys",
+    canonicalName: "Dr. Reddy's Laboratories Ltd",
+    description:
+      "Hyderabad-based multinational pharmaceutical company focused on generics, biosimilars and proprietary products across North America, Europe and emerging markets.",
+    country: "India",
+    website: "https://www.drreddys.com",
+    aliases: ["Dr Reddy's", "Dr. Reddy", "DRL", "Dr Reddys Laboratories"],
+    securities: [
+      { exchange: "NSE", ticker: "DRREDDY", currency: "INR" },
+      { exchange: "BSE", ticker: "DRREDDY", currency: "INR" },
+    ],
+  },
+  {
+    id: "co-cipla",
+    slug: "cipla",
+    canonicalName: "Cipla Ltd",
+    description:
+      "Mumbai-based pharmaceutical company known for respiratory, anti-retroviral and complex-generic portfolios, with manufacturing sites across India.",
+    country: "India",
+    website: "https://www.cipla.com",
+    aliases: ["Cipla Limited"],
+    securities: [
+      { exchange: "NSE", ticker: "CIPLA", currency: "INR" },
+      { exchange: "BSE", ticker: "CIPLA", currency: "INR" },
+    ],
+  },

@@ -1,0 +1,38 @@
+{
+  "dependencies": {
+    "@biocatalyst/db": "workspace:*",
+    "@biocatalyst/market-data": "workspace:*",
+    "@biocatalyst/types": "workspace:*",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.2.4"
+  },
+  "exports": {
+    ".": {
+      "default": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./seed-db": {
+      "default": "./dist/seed-db.js",
+      "types": "./dist/seed-db.d.ts"
+    }
+  },
+  "main": "./dist/index.js",
+  "name": "@biocatalyst/data",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "echo 'no linter configured for @biocatalyst/data'",
+    "seed:db": "node dist/seed-db.js",
+    "seed:companies": "node dist/seed-companies.js",
+    "sync:patents": "node dist/sync-patents.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "version": "0.1.0"
+}

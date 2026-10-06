@@ -1,0 +1,36 @@
+{
+  "name": "@biocatalyst/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'no linter configured for @biocatalyst/web (M1)'",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@biocatalyst/auth": "workspace:*",
+    "@biocatalyst/data": "workspace:*",
+    "@biocatalyst/notifications": "workspace:*",
+    "@biocatalyst/types": "workspace:*",
+    "next": "^15.3.4",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "@biocatalyst/ingestion": "workspace:*",
+    "@biocatalyst/market-data": "workspace:*",
+    "zod": "^4.6.5",
+    "@biocatalyst/db": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/pg": "^8.11.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "pg": "^8.13.1",
+    "typescript": "^5.7.3",
+    "vitest": "^3.2.4"
+  }
+}

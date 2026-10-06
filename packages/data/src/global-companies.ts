@@ -1,0 +1,225 @@
+/**
+ * Global (non-Indian) pharma companies tracked for their India impact.
+ *
+ * These are the innovators and global generics majors whose FDA approvals,
+ * trial readouts, patent expiries and partnerships move Indian pharma —
+ * either as competitors, licensors, or customers of Indian API/generics
+ * manufacturers. Securities use home exchanges; the Yahoo Finance provider
+ * maps them to Yahoo suffixes (none for NYSE/NASDAQ, .L/.PA/.DE/.SW).
+ *
+ * Seeded additively by `seed:companies` (same path as the Indian catalog);
+ * the Global section of the app lists companies with `country !== "India"`.
+ */
+import type { Company } from "@biocatalyst/types";
+
+export const globalCompanies: Company[] = [
+  {
+    id: "co-pfizer",
+    slug: "pfizer",
+    canonicalName: "Pfizer Inc",
+    description:
+      "US pharmaceutical major with one of the industry's largest innovative portfolios across oncology, immunology, cardiology and vaccines.",
+    country: "United States",
+    website: "https://www.pfizer.com",
+    aliases: ["Pfizer"],
+    securities: [{ exchange: "NYSE", ticker: "PFE", currency: "USD" }],
+  },
+  {
+    id: "co-jnj",
+    slug: "johnson-johnson",
+    canonicalName: "Johnson & Johnson",
+    description:
+      "US healthcare conglomerate focused on innovative medicine (oncology, immunology, neuroscience) and MedTech.",
+    country: "United States",
+    website: "https://www.jnj.com",
+    aliases: ["J&J", "Johnson and Johnson"],
+    securities: [{ exchange: "NYSE", ticker: "JNJ", currency: "USD" }],
+  },
+  {
+    id: "co-merck-co",
+    slug: "merck-co",
+    canonicalName: "Merck & Co., Inc.",
+    description:
+      "US pharma major (known as MSD outside the US and Canada); Keytruda (pembrolizumab) is the world's best-selling oncology drug.",
+    country: "United States",
+    website: "https://www.merck.com",
+    aliases: ["Merck", "MSD"],
+    securities: [{ exchange: "NYSE", ticker: "MRK", currency: "USD" }],
+  },
+  {
+    id: "co-lilly",
+    slug: "eli-lilly",
+    canonicalName: "Eli Lilly and Company",
+    description:
+      "US pharma major leading the GLP-1 market with Mounjaro/Zepbound (tirzepatide), launched in India in 2025.",
+    country: "United States",
+    website: "https://www.lilly.com",
+    aliases: ["Lilly", "Eli Lilly"],
+    securities: [{ exchange: "NYSE", ticker: "LLY", currency: "USD" }],
+  },
+  {
+    id: "co-abbvie",
+    slug: "abbvie",
+    canonicalName: "AbbVie Inc",
+    description:
+      "US biopharma spun out of Abbott; Humira (adalimumab) was the world's best-selling drug before biosimilar erosion.",
+    country: "United States",
+    website: "https://www.abbvie.com",
+    aliases: ["AbbVie"],
+    securities: [{ exchange: "NYSE", ticker: "ABBV", currency: "USD" }],
+  },
+  {
+    id: "co-bms",
+    slug: "bristol-myers-squibb",
+    canonicalName: "Bristol Myers Squibb",
+    description:
+      "US pharma major focused on oncology, immunology and cardiovascular; Opdivo (nivolumab) anchor immuno-oncology franchise.",
+    country: "United States",
+    website: "https://www.bms.com",
+    aliases: ["BMS", "Bristol Myers", "Bristol-Myers Squibb"],
+    securities: [{ exchange: "NYSE", ticker: "BMY", currency: "USD" }],
+  },
+  {
+    id: "co-amgen",
+    slug: "amgen",
+    canonicalName: "Amgen Inc",
+    description:
+      "US biotechnology pioneer in biologics across oncology, inflammation and bone health.",
+    country: "United States",
+    website: "https://www.amgen.com",
+    aliases: ["Amgen"],
+    securities: [{ exchange: "NASDAQ", ticker: "AMGN", currency: "USD" }],
+  },
+  {
+    id: "co-gilead",
+    slug: "gilead",
+    canonicalName: "Gilead Sciences, Inc.",
+    description:
+      "US biopharma leader in HIV and antivirals; licenses manufacturing to Indian generics makers via voluntary licences.",
+    country: "United States",
+    website: "https://www.gilead.com",
+    aliases: ["Gilead", "Gilead Sciences"],
+    securities: [{ exchange: "NASDAQ", ticker: "GILD", currency: "USD" }],
+  },
+  {
+    id: "co-moderna",
+    slug: "moderna",
+    canonicalName: "Moderna, Inc.",
+    description:
+      "US mRNA platform company (Spikevax); expanding into RSV, flu and oncology mRNA programs.",
+    country: "United States",
+    website: "https://www.modernatx.com",
+    aliases: ["Moderna"],
+    securities: [{ exchange: "NASDAQ", ticker: "MRNA", currency: "USD" }],
+  },
+  {
+    id: "co-biogen",
+    slug: "biogen",
+    canonicalName: "Biogen Inc",
+    description:
+      "US biotech focused on neuroscience (Alzheimer's, MS, spinal muscular atrophy).",
+    country: "United States",
+    website: "https://www.biogen.com",
+    aliases: ["Biogen"],
+    securities: [{ exchange: "NASDAQ", ticker: "BIIB", currency: "USD" }],
+  },
+  {
+    id: "co-novartis",
+    slug: "novartis",
+    canonicalName: "Novartis AG",
+    description:
+      "Swiss pharma major focused on innovative medicines (cardiovascular, immunology, neuroscience, oncology).",
+    country: "Switzerland",
+    website: "https://www.novartis.com",
+    aliases: ["Novartis"],
+    securities: [{ exchange: "NYSE", ticker: "NVS", currency: "USD" }],
+  },
+  {
+    id: "co-roche",
+    slug: "roche",
+    canonicalName: "Roche Holding AG",
+    description:
+      "Swiss pharma and diagnostics leader; Herceptin (trastuzumab) faces biosimilar competition including from Biocon.",
+    country: "Switzerland",
+    website: "https://www.roche.com",
+    aliases: ["Roche"],
+    securities: [{ exchange: "SWX", ticker: "ROG", currency: "CHF" }],
+  },
+  {
+    id: "co-sandoz",
+    slug: "sandoz",
+    canonicalName: "Sandoz Group AG",
+    description:
+      "Swiss generics and biosimilars major (spun out of Novartis in 2023); direct global competitor to Indian generics makers.",
+    country: "Switzerland",
+    website: "https://www.sandoz.com",
+    aliases: ["Sandoz"],
+    securities: [{ exchange: "SWX", ticker: "SDZ", currency: "CHF" }],
+  },
+  {
+    id: "co-novo-nordisk",
+    slug: "novo-nordisk",
+    canonicalName: "Novo Nordisk A/S",
+    description:
+      "Danish pharma leader in diabetes and obesity care (Ozempic/Wegovy semaglutide); India's semaglutide patent expiry opens a generics wave.",
+    country: "Denmark",
+    website: "https://www.novonordisk.com",
+    aliases: ["Novo Nordisk", "Novo"],
+    securities: [{ exchange: "NYSE", ticker: "NVO", currency: "USD" }],
+  },
+  {
+    id: "co-astrazeneca",
+    slug: "astrazeneca",
+    canonicalName: "AstraZeneca PLC",
+    description:
+      "UK-Swedish pharma major in oncology, cardiovascular and respiratory; large India clinical-development footprint.",
+    country: "United Kingdom",
+    website: "https://www.astrazeneca.com",
+    aliases: ["AstraZeneca", "AZ"],
+    securities: [{ exchange: "NASDAQ", ticker: "AZN", currency: "USD" }],
+  },
+  {
+    id: "co-gsk",
+    slug: "gsk",
+    canonicalName: "GSK plc",
+    description:
+      "UK pharma major focused on vaccines, infectious disease and respiratory; long-standing India commercial presence.",
+    country: "United Kingdom",
+    website: "https://www.gsk.com",
+    aliases: ["GSK", "GlaxoSmithKline"],
+    securities: [{ exchange: "NYSE", ticker: "GSK", currency: "USD" }],
+  },
+  {
+    id: "co-sanofi",
+    slug: "sanofi",
+    canonicalName: "Sanofi",
+    description:
+      "French pharma major in immunology, diabetes (insulin) and vaccines; competes with Biocon in insulin.",
+    country: "France",
+    website: "https://www.sanofi.com",
+    aliases: ["Sanofi"],
+    securities: [{ exchange: "NASDAQ", ticker: "SNY", currency: "USD" }],
+  },
+  {
+    id: "co-takeda",
+    slug: "takeda",
+    canonicalName: "Takeda Pharmaceutical Company",
+    description:
+      "Japan's largest drugmaker, focused on oncology, rare diseases, GI and neuroscience.",
+    country: "Japan",
+    website: "https://www.takeda.com",
+    aliases: ["Takeda"],
+    securities: [{ exchange: "NYSE", ticker: "TAK", currency: "USD" }],
+  },
+  {
+    id: "co-bayer",
+    slug: "bayer",
+    canonicalName: "Bayer AG",
+    description:
+      "German life-sciences major (pharmaceuticals, consumer health, crop science).",
+    country: "Germany",
+    website: "https://www.bayer.com",
+    aliases: ["Bayer"],
+    securities: [{ exchange: "XETRA", ticker: "BAYN", currency: "EUR" }],
+  },
+];

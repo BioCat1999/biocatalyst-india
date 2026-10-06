@@ -1,0 +1,33 @@
+{
+  "name": "biocatalyst-india",
+  "version": "0.1.0",
+  "private": true,
+  "description": "India-focused biotech/pharma catalyst intelligence \u2014 web PWA + Postgres backend + Expo mobile app (Milestones 0–9)",
+  "packageManager": "pnpm@10.34.6",
+  "scripts": {
+    "dev": "turbo run dev --filter=@biocatalyst/web",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "db:setup": "bash scripts/db-setup.sh",
+    "db:migrate": "pnpm --filter @biocatalyst/db migrate",
+    "db:seed": "pnpm --filter @biocatalyst/data seed:db",
+    "db:reset": "bash scripts/db-setup.sh --reset",
+    "ingest": "pnpm --filter @biocatalyst/ingestion ingest",
+    "market:reaction": "pnpm --filter @biocatalyst/market-data market:reaction"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "19.3.0",
+      "@types/react-dom": "19.3.0"
+    }
+  }
+}

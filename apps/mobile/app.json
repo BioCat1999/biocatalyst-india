@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0f2a43",
+        "foregroundImage": "./assets/adaptive-icon.png"
+      },
+      "package": "india.biocatalyst.app"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "extra": {
+      "apiUrlComment": "The API base URL is read from EXPO_PUBLIC_API_URL at build/start time (default http://localhost:3000). See README.md."
+    },
+    "icon": "./assets/icon.png",
+    "ios": {
+      "bundleIdentifier": "india.biocatalyst.app",
+      "icon": "./assets/icon.png",
+      "supportsTablet": true
+    },
+    "name": "Biocatalyst India",
+    "newArchEnabled": true,
+    "orientation": "portrait",
+    "plugins": [
+      "expo-notifications"
+    ],
+    "scheme": "biocatalyst-india",
+    "slug": "biocatalyst-india",
+    "splash": {
+      "backgroundColor": "#0f2a43",
+      "image": "./assets/splash.png",
+      "resizeMode": "contain"
+    },
+    "userInterfaceStyle": "light",
+    "version": "0.1.0"
+  }
+}

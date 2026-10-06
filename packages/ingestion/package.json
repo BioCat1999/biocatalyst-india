@@ -1,0 +1,36 @@
+{
+  "name": "@biocatalyst/ingestion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "default": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && rm -rf dist/adapters/fixtures && cp -r src/adapters/fixtures dist/adapters/fixtures",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo 'no linter configured for @biocatalyst/ingestion'",
+    "test": "vitest run",
+    "ingest": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@biocatalyst/db": "workspace:*",
+    "@biocatalyst/types": "workspace:*",
+    "zod": "^4.6.5",
+    "pg": "^8.13.1",
+    "@biocatalyst/extraction": "workspace:*",
+    "@biocatalyst/notifications": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^3.2.4",
+    "@types/pg": "^8.11.0",
+    "@biocatalyst/data": "workspace:*",
+    "@biocatalyst/market-data": "workspace:*"
+  }
+}

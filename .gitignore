@@ -1,0 +1,10 @@
+node_modules/
+.next/
+dist/
+.turbo/
+*.tsbuildinfo
+.env
+.env.local
+.DS_Store
+coverage/
+backups/   # local DB backups (db-backup.sh copies .env files here — never commit)

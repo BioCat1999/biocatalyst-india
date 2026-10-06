@@ -1,0 +1,1 @@
+{"compilerOptions":{"allowJs":true,"baseUrl":".","jsx":"react-native","noEmit":true,"paths":{"@/*":["src/*"]},"types":["jest","node"]},"extends":"../../tsconfig.base.json","include":["src","App.tsx","index.ts"]}

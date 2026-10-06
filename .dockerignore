@@ -1,0 +1,13 @@
+# Kept out of the Cloud Run container image.
+node_modules
+.next
+.turbo
+dist
+.git
+.gitignore
+.env
+.env.*
+*.log
+coverage
+apps/mobile
+packages/*/dist
