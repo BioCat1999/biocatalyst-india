@@ -3,7 +3,7 @@
  * (Milestone 9 plumbing), and the configured API URL.
  */
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { CompositeScreenProps } from "@react-navigation/native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -42,7 +42,7 @@ function pushStatusLabel(result: PushSetupResult | null): string {
 }
 
 export function AccountScreen({ navigation }: Props) {
-  const { user, initializing, busy, signOut } = useAuth();
+  const { user, initializing, busy, signOut, deleteAccount } = useAuth();
   const [pushResult, setPushResult] = useState<PushSetupResult | null>(null);
   const [pushBusy, setPushBusy] = useState(false);
   const [storedToken, setStoredToken] = useState<string | null>(null);
@@ -50,6 +50,27 @@ export function AccountScreen({ navigation }: Props) {
   useEffect(() => {
     getStoredPushToken().then(setStoredToken);
   }, []);
+
+  const confirmDeleteAccount = useCallback(() => {
+    Alert.alert(
+      "Delete account?",
+      "This permanently deletes your account, watchlist, alerts and device push tokens. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete account",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteAccount();
+            } catch {
+              Alert.alert("Could not delete account", "Please try again, or contact support.");
+            }
+          },
+        },
+      ],
+    );
+  }, [deleteAccount]);
 
   const setupPush = useCallback(async () => {
     setPushBusy(true);
@@ -77,6 +98,17 @@ export function AccountScreen({ navigation }: Props) {
               <PrimaryButton
                 label={busy ? "Signing out…" : "Sign out"}
                 onPress={() => signOut()}
+                disabled={busy}
+              />
+              <View style={{ height: spacing.md }} />
+              <Text style={styles.muted}>
+                Deleting your account permanently removes your watchlist, alerts and device
+                push tokens.
+              </Text>
+              <View style={{ height: spacing.sm }} />
+              <PrimaryButton
+                label="Delete account"
+                onPress={confirmDeleteAccount}
                 disabled={busy}
               />
             </>

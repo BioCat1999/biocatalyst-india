@@ -72,6 +72,12 @@ export interface AuthProvider {
   signUp(email: string, password: string): Promise<AuthUser>;
   signIn(email: string, password: string): Promise<{ token: string; session: AuthSession }>;
   signOut(token: string): Promise<void>;
+  /**
+   * Permanently delete a user account. The users row delete cascades to
+   * sessions, watchlist items, alerts and push tokens (FK ON DELETE
+   * CASCADE), so no per-table cleanup is needed here.
+   */
+  deleteAccount(userId: string): Promise<void>;
   /** Returns the session for a live token, or null for unknown/expired. */
   verifyToken(token: string): Promise<AuthSession | null>;
 }
@@ -236,6 +242,10 @@ export class LocalAuthProvider implements AuthProvider {
 
   async signOut(token: string): Promise<void> {
     await this.pool.query("DELETE FROM sessions WHERE token_hash = $1", [hashToken(token)]);
+  }
+
+  async deleteAccount(userId: string): Promise<void> {
+    await this.pool.query("DELETE FROM users WHERE id = $1", [userId]);
   }
 
   async verifyToken(token: string): Promise<AuthSession | null> {

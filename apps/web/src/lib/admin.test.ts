@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { isAdminRequest } from "./admin";
+import { isAdminRequest, isCronRequest } from "./admin";
 
 function reqWithAuth(auth: string | null): NextRequest {
   const headers = new Headers();
@@ -41,5 +41,16 @@ describe("isAdminRequest", () => {
     expect(isAdminRequest(reqWithAuth("Bearer "))).toBe(false);
     expect(isAdminRequest(reqWithAuth("s3cret-token"))).toBe(false);
     expect(isAdminRequest(reqWithAuth(null))).toBe(false);
+  });
+
+  it("cron requests accept CRON_SECRET even when it differs from ADMIN_TOKEN", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ADMIN_TOKEN", "admin-token");
+    vi.stubEnv("CRON_SECRET", "cron-token");
+    expect(isCronRequest(reqWithAuth("Bearer cron-token"))).toBe(true);
+    expect(isCronRequest(reqWithAuth("Bearer admin-token"))).toBe(true);
+    expect(isCronRequest(reqWithAuth("Bearer wrong"))).toBe(false);
+    // CRON_SECRET alone must not authorize ADMIN_TOKEN checks (POST stays admin-only).
+    expect(isAdminRequest(reqWithAuth("Bearer cron-token"))).toBe(false);
   });
 });

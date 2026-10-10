@@ -248,6 +248,18 @@ export class ApiClient {
     return res.user;
   }
 
+  /**
+   * Permanently delete the signed-in account (the server cascades to
+   * watchlist, alerts and push tokens) and drop the local token either way.
+   */
+  async deleteAccount(): Promise<void> {
+    try {
+      await this.request("/api/v1/auth/account", { method: "DELETE" });
+    } finally {
+      await this.setSessionToken(null);
+    }
+  }
+
   /** Destroy the server session and drop the local token either way. */
   async signOut(): Promise<void> {
     try {

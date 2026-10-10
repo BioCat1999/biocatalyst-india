@@ -175,6 +175,16 @@ describe("session cookie plumbing", () => {
     expect(await client.getSessionToken()).toBeNull();
   });
 
+  it("deleteAccount sends DELETE to the account route and clears the token", async () => {
+    const { fetchImpl, calls } = stubFetch(() => jsonResponse({ ok: true }));
+    const { client, storage } = makeClient(fetchImpl);
+    await storage.setItem("biocatalyst.sessionToken", "old");
+    await expect(client.deleteAccount()).resolves.toBeUndefined();
+    expect(calls[0].url).toContain("/api/v1/auth/account");
+    expect(calls[0].init.method).toBe("DELETE");
+    expect(await client.getSessionToken()).toBeNull();
+  });
+
   it("getSession returns { user: null } on 401 instead of throwing", async () => {
     const { fetchImpl } = stubFetch(() => jsonResponse({ user: null }, 401));
     const { client } = makeClient(fetchImpl);

@@ -48,6 +48,13 @@ export {
   type RssItem,
 } from "./adapters/rss.js";
 export {
+  PrNewswireAdapter,
+  PRNEWSWIRE_SOURCE_NAME,
+  PRNEWSWIRE_FEEDS,
+  attributeCompany,
+  itemLanguage,
+} from "./adapters/prnewswire.js";
+export {
   ADAPTER_FACTORIES,
   createAdapter,
   listSourceNames,

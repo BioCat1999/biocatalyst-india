@@ -23,8 +23,8 @@ async function FeedList({ eventType }: { eventType?: EventType }) {
       ))}
       {nextCursor && (
         <p style={{ color: "var(--muted)", fontSize: 13 }}>
-          Showing {items.length} of 30 seeded events — cursor pagination continues
-          in the API (<code>/api/v1/events</code>).
+          Showing the {items.length} most recent events — cursor pagination
+          continues in the API (<code>/api/v1/events</code>).
         </p>
       )}
     </div>
@@ -51,9 +51,8 @@ export default async function Home({
           pharma/biotech companies — newest first.
         </p>
         <div className="seed-banner" role="note">
-          <strong>Seed fixtures:</strong> every event, source link, timestamp
-          and market figure on this page is illustrative demo data for the
-          Milestone 1 prototype — not real announcements.
+          Events are ingested from public sources (trial registries, FDA,
+          company disclosures) and every card links to its source record.
         </div>
       </div>
       <Suspense>

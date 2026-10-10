@@ -4,7 +4,7 @@
  *
  * Pages are rendered to static HTML (no server needed) and asserted to
  * contain the key phrases: informational-only, not medical advice, not
- * investment advice, data sources / fixture status, retention, contact.
+ * investment advice, data sources, retention, contact.
  */
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -19,7 +19,7 @@ describe("legal pages", () => {
     const html = renderToStaticMarkup(PrivacyPage());
     expect(html).toContain("Privacy Policy");
     expect(html).toContain("no third-party analytics");
-    expect(html).toContain("seed fixtures");
+    expect(html).toContain("public sources");
     expect(html).toContain("Data retention");
     expect(html).toContain("bio1941999@gmail.com");
   });
@@ -41,6 +41,6 @@ describe("legal pages", () => {
     expect(html).toContain("not medical advice");
     expect(html).toContain("not investment advice");
     expect(html).toContain("buy/sell/hold");
-    expect(html).toContain("not real announcements or real market data");
+    expect(html).toContain("Automated extraction");
   });
 });

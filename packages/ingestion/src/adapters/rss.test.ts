@@ -113,6 +113,24 @@ describe("classifyPressRelease", () => {
     expect(classifyPressRelease("Sun Pharma reports Q1FY27 results")).toBeNull();
     expect(classifyPressRelease("Sun Pharma appoints new CFO")).toBeNull();
   });
+  it("maps long-term / congress data readouts without a phase keyword", () => {
+    // Real headline, 2026-10-01: previously returned null (dropped by runner).
+    expect(
+      classifyPressRelease(
+        "New LEQSELVI (deuruxolitinib) Two-Year Data in Severe Alopecia Areata Showed Sustained Efficacy and Safety at EADV Congress 2026",
+      ),
+    ).toBe("clinical_trial_result");
+    expect(
+      classifyPressRelease(
+        "Open-label extension study demonstrates long-term safety over two years of treatment",
+      ),
+    ).toBe("clinical_trial_result");
+  });
+  it("still drops long-term phrasing without data readouts", () => {
+    expect(
+      classifyPressRelease("Sun Pharma shares long-term growth outlook at investor day"),
+    ).toBeNull();
+  });
 });
 
 describe("PressRssAdapter", () => {

@@ -20,6 +20,8 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Permanently delete the account, then return to anonymous browsing. */
+  deleteAccount: () => Promise<void>;
   refresh: () => Promise<void>;
   clearError: () => void;
 }
@@ -89,11 +91,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await getApiClient().deleteAccount();
+      setUser(null);
+    } catch (err) {
+      setError(toMessage(err));
+      throw err;
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
   const clearError = useCallback(() => setError(null), []);
 
   const value = useMemo(
-    () => ({ user, initializing, busy, error, signIn, signUp, signOut, refresh, clearError }),
-    [user, initializing, busy, error, signIn, signUp, signOut, refresh, clearError],
+    () => ({
+      user,
+      initializing,
+      busy,
+      error,
+      signIn,
+      signUp,
+      signOut,
+      deleteAccount,
+      refresh,
+      clearError,
+    }),
+    [user, initializing, busy, error, signIn, signUp, signOut, deleteAccount, refresh, clearError],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -87,9 +87,11 @@ browsing — none.
 
 **Verify before submission:**
 - The Data safety "account deletion" answer must match the real,
-  tested deletion path (contact-email flow today — consider whether the
-  stores expect an in-app deletion option; Apple requires apps with
-  account creation to offer in-app account deletion).
+  tested deletion path. In-app deletion is implemented
+  (`DELETE /api/v1/auth/account` + the mobile Account screen's
+  "Delete account" action, which cascades to watchlist, alerts, and
+  push tokens) alongside the contact-email route — exercise the in-app
+  path once against production before answering.
 - Re-confirm after any dependency change: no new SDK may be added without
   re-answering this questionnaire.
 
@@ -99,9 +101,11 @@ browsing — none.
 
 - [x] Operator email set: bio1941999@gmail.com (replaced 2026-10-01)
       (privacy policy page + store listings + this doc's deletion path)
-- [ ] Privacy Policy URL is live at the production domain
-- [ ] Privacy policy mentions push-token storage (added M10)
-- [ ] Production deployment serves HTTPS (TLS termination verified)
-- [ ] Apple "in-app account deletion" requirement reviewed against the
-      contact-email deletion flow
+- [x] Privacy Policy URL is live at the production domain
+      (`https://biocatalyst-india.vercel.app/privacy`, verified 2026-10-06)
+- [x] Privacy policy mentions push-token storage (added M10)
+- [x] Production deployment serves HTTPS (Vercel, verified 2026-10-06)
+- [x] Apple "in-app account deletion" requirement: in-app deletion
+      implemented (API + mobile Account screen); exercise it once live
+      before submission
 - [ ] No new third-party SDK added since this document was written

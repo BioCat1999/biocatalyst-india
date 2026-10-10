@@ -5,7 +5,8 @@
         "backgroundColor": "#0f2a43",
         "foregroundImage": "./assets/adaptive-icon.png"
       },
-      "package": "india.biocatalyst.app"
+      "package": "india.biocatalyst.app",
+      "versionCode": 1
     },
     "assetBundlePatterns": [
       "**/*"
@@ -16,6 +17,7 @@
     "icon": "./assets/icon.png",
     "ios": {
       "bundleIdentifier": "india.biocatalyst.app",
+      "buildNumber": "1",
       "icon": "./assets/icon.png",
       "supportsTablet": true
     },
@@ -33,6 +35,6 @@
       "resizeMode": "contain"
     },
     "userInterfaceStyle": "light",
-    "version": "0.1.0"
+    "version": "1.0.0"
   }
 }

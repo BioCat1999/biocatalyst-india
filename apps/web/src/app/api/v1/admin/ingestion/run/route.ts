@@ -7,7 +7,7 @@ import {
   runAllIngestion,
   runIngestion,
 } from "@biocatalyst/ingestion";
-import { isAdminRequest } from "@/lib/admin";
+import { isAdminRequest, isCronRequest } from "@/lib/admin";
 
 /**
  * POST /api/v1/admin/ingestion/run (spec §12).
@@ -72,22 +72,39 @@ export async function POST(req: NextRequest) {
 
 /**
  * GET variant for platform cron triggers (e.g. Vercel Cron), which issue
- * GET requests. Same admin gating as POST: the platform must send
- * `Authorization: Bearer <CRON_SECRET>` — set CRON_SECRET to the same
- * value as ADMIN_TOKEN. Runs the full ingestion pass (`source=all`).
+ * GET requests. Gating: `Authorization: Bearer <CRON_SECRET>` (sent
+ * automatically by Vercel when CRON_SECRET is set) or the ADMIN_TOKEN.
+ * Runs the full ingestion pass by default, or a
+ * single source with `?source=<name>` — the hourly PR Newswire workflow
+ * (GitHub Actions, `.github/workflows/ingest-prnewswire-hourly.yml`)
+ * uses `?source=prnewswire` so the other sources are not re-run hourly.
  */
 export async function GET(req: NextRequest) {
-  if (!isAdminRequest(req)) {
+  if (!isCronRequest(req)) {
     return NextResponse.json({ error: "forbidden — admin token required" }, { status: 403 });
   }
+  const sourceName = req.nextUrl.searchParams.get("source") ?? "all";
   try {
     const pool = getPool();
     await migrate(pool); // idempotent — ensures migrations are applied
-    const sources = await runAllIngestion(pool);
-    return NextResponse.json(
-      { sources },
-      { status: sources.some((m) => m.status !== "success") ? 500 : 200 },
-    );
+    if (sourceName === "all") {
+      const sources = await runAllIngestion(pool);
+      return NextResponse.json(
+        { sources },
+        { status: sources.some((m) => m.status !== "success") ? 500 : 200 },
+      );
+    }
+    const adapter = createAdapter(sourceName);
+    if (!adapter) {
+      return NextResponse.json(
+        { error: `unknown source: ${sourceName}`, knownSources: listSourceNames() },
+        { status: 400 },
+      );
+    }
+    const metrics = await runIngestion(pool, adapter);
+    return NextResponse.json(metrics, {
+      status: metrics.status === "success" ? 200 : 500,
+    });
   } catch (err) {
     return NextResponse.json(
       { error: "ingestion failed", detail: (err as Error).message },

@@ -39,15 +39,13 @@ export default function DisclaimerPage() {
         provider are shown on every event. Market data may be delayed.
       </p>
 
-      <h2>Seed fixtures and automated extraction</h2>
+      <h2>Automated extraction</h2>
       <p>
-        Some data is labelled <strong>seed fixtures</strong> — fictional
-        records used for development, not real announcements or real market
-        data. Other summaries may be produced or assisted by automated
-        extraction from source documents; confidence and review status are
-        shown where available, and unknown fields are shown as unknown rather
-        than guessed. Every event links to its underlying source records —
-        always verify material facts against the primary source.
+        Event summaries may be produced or assisted by automated extraction
+        from source documents; confidence and review status are shown where
+        available, and unknown fields are shown as unknown rather than
+        guessed. Every event links to its underlying source records — always
+        verify material facts against the primary source.
       </p>
 
       <h2>Corrections</h2>

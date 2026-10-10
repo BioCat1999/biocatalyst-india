@@ -16,10 +16,25 @@ function safeEqual(a: string, b: string): boolean {
   return ab.length === bb.length && timingSafeEqual(ab, bb);
 }
 
-export function isAdminRequest(req: NextRequest): boolean {
-  if (process.env.NODE_ENV === "development") return true;
-  const token = process.env.ADMIN_TOKEN;
+function bearerMatches(req: NextRequest, token: string | undefined): boolean {
   if (!token) return false;
   const auth = req.headers.get("authorization") ?? "";
   return auth.startsWith("Bearer ") && safeEqual(auth.slice("Bearer ".length), token);
+}
+
+export function isAdminRequest(req: NextRequest): boolean {
+  if (process.env.NODE_ENV === "development") return true;
+  return bearerMatches(req, process.env.ADMIN_TOKEN);
+}
+
+/**
+ * Platform cron invocations (Vercel Cron) present
+ * `Authorization: Bearer <CRON_SECRET>`. Accept that secret for cron
+ * GET triggers without requiring CRON_SECRET to equal ADMIN_TOKEN —
+ * the previous setup instruction — so the two values can drift safely.
+ * POST admin actions remain ADMIN_TOKEN-only.
+ */
+export function isCronRequest(req: NextRequest): boolean {
+  if (process.env.NODE_ENV === "development") return true;
+  return bearerMatches(req, process.env.CRON_SECRET) || isAdminRequest(req);
 }

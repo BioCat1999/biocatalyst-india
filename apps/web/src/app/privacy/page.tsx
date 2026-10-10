@@ -52,12 +52,11 @@ export default function PrivacyPage() {
         caches app assets on your device only, so pages can load offline.)
       </p>
 
-      <h2>Data sources and fixture status</h2>
+      <h2>Data sources</h2>
       <p>
         Event, company, drug, trial and market data shown in the product comes
         from public sources (stock-exchange disclosures, trial registries,
-        publisher abstracts) or from <strong>seed fixtures</strong> used for
-        development, clearly labelled as such. Every event links to its
+        regulator records, publisher abstracts). Every event links to its
         underlying source record. Corrections submitted through the issue-report
         mechanism are reviewed before publication.
       </p>
@@ -77,10 +76,12 @@ export default function PrivacyPage() {
 
       <h2>Your rights</h2>
       <p>
-        You may request a copy of the data we hold about you, request
+        You may request a copy of the data we hold about you or request
         correction of inaccurate event data (use “Report an issue” on any event
-        page), or request deletion of your account and its data, by contacting
-        us at <strong>bio1941999@gmail.com</strong>.
+        page) by contacting us at <strong>bio1941999@gmail.com</strong>. You can
+        delete your account and its data at any time from the{" "}
+        <strong>Account</strong> tab in the mobile app (Delete account), or by
+        emailing the same address.
       </p>
 
       <h2>Changes</h2>

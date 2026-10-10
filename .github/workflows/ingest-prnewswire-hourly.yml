@@ -1,0 +1,46 @@
+# Hourly PR Newswire ingestion trigger.
+#
+# Why this exists: the PR Newswire category RSS feeds carry only ~20
+# items spanning <24h (~7–8h observed), so the daily Vercel Cron
+# (02:30 UTC; the Hobby plan allows at most one cron run per day) would
+# miss most releases — including Sun Pharma congress readouts like the
+# two-year LEQSELVI data (Oct 2026) that never appear on the corporate
+# blog. This workflow runs in THIS repo on GitHub's free tier and pings
+# the source-gated ingestion endpoint hourly. Only the `prnewswire`
+# adapter runs per ping, so the other sources (GDELT, openFDA, …) keep
+# their daily cadence and are not re-hammered.
+#
+# Cost: ₹0. ~730 runs/month × ~1 billed minute ≈ well inside the free
+# 2,000 Actions minutes/month for private repos. No new third party:
+# GitHub already hosts this repo, Vercel already hosts the app.
+#
+# One-time setup — repo → Settings → Secrets and variables → Actions:
+#   ADMIN_TOKEN   the same value as the ADMIN_TOKEN env var in Vercel
+#                 (already set there; the token never enters this file).
+# The workflow reads no database credential and writes nothing to the repo.
+#
+# Failure visibility: the step prints the endpoint's JSON response.
+# HTTP 500 (e.g. PR Newswire 403'ing Vercel's IPs — unproven until the
+# first runs) shows up in the Actions log; add `-f` to the curl to turn
+# those into failed (emailed) runs once the source is confirmed healthy.
+name: ingest-prnewswire-hourly
+
+on:
+  schedule:
+    # Hourly at :17, off the top of the hour. GitHub may delay scheduled
+    # runs under load; the ~7h feed window tolerates multi-hour delays.
+    - cron: "17 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger prnewswire ingestion (single source)
+        run: |
+          curl -sS -X POST \
+            "https://biocatalyst-india.vercel.app/api/v1/admin/ingestion/run?source=prnewswire" \
+            -H "Authorization: Bearer ${{ secrets.ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{}'

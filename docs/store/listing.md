@@ -58,11 +58,14 @@ terms if over 100.)
 
 | Item | Value |
 |---|---|
-| Support URL | [e.g. `https://<prod-domain>/support` — user provides] |
-| Marketing URL | [e.g. `https://<prod-domain>` — user provides] |
-| Privacy Policy URL | `https://<prod-domain>/privacy` (must be live; page exists in the app) |
+| Support URL | `https://biocatalyst-india.vercel.app/support` |
+| Marketing URL | `https://biocatalyst-india.vercel.app` |
+| Privacy Policy URL | `https://biocatalyst-india.vercel.app/privacy` (live; mentions push-token storage) |
 | Support email | bio1941999@gmail.com |
 | Copyright | [Operator/legal entity name + year — user provides] |
+
+(Production domain is the Vercel URL above as of 2026-10-06; swap all three
+URLs together if a custom domain is added later.)
 
 The in-app privacy policy now uses the operator address
 bio1941999@gmail.com (set 2026-10-01).

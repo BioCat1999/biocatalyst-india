@@ -13,6 +13,8 @@
  *   - `ctgov`: ClinicalTrials.gov API v2 (trials)
  *   - `gdelt`: GDELT DOC 2.0 API (news)
  *   - `press-rss`: company press-release RSS feeds (no API keys)
+ *   - `prnewswire`: PR Newswire category wire feeds (no API keys) —
+ *     multi-company, per-item attribution; needs hourly polling
  *   - `openfda`: FDA drug approvals + recalls (no API key)
  */
 import type { Pool } from "pg";
@@ -23,6 +25,7 @@ import { PubmedFixtureAdapter } from "./adapters/pubmed.js";
 import { CtgovAdapter } from "./adapters/ctgov.js";
 import { GdeltAdapter } from "./adapters/gdelt.js";
 import { PressRssAdapter } from "./adapters/rss.js";
+import { PrNewswireAdapter } from "./adapters/prnewswire.js";
 import { OpenFdaAdapter } from "./adapters/fda.js";
 import { runIngestion, type IngestionMetrics } from "./run.js";
 
@@ -33,6 +36,7 @@ export const ADAPTER_FACTORIES: Record<string, () => SourceAdapter> = {
   ctgov: () => new CtgovAdapter(),
   gdelt: () => new GdeltAdapter(),
   "press-rss": () => new PressRssAdapter(),
+  prnewswire: () => new PrNewswireAdapter(),
   openfda: () => new OpenFdaAdapter(),
 };
 

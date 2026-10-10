@@ -63,9 +63,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               price targets or personalised recommendations.
             </p>
             <p>
-              Milestone 1 prototype: all companies, events, sources and market
-              figures are <strong>seed fixtures</strong> for UI development, not
-              real announcements or real market data.
+              Events are ingested from public sources and link to their source
+              records. Market data may be delayed.
             </p>
             <nav aria-label="Legal">
               <Link href="/privacy">Privacy</Link>

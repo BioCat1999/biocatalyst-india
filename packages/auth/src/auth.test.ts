@@ -126,6 +126,19 @@ describe("signIn / verifyToken / signOut", () => {
     expect(await p.verifyToken(token)).toBeNull();
   });
 
+  it("deleteAccount removes the user and cascades the session away", async () => {
+    const p = provider();
+    const user = await p.signUp("gone@example.com", "correct-horse-9");
+    const { token } = await p.signIn("gone@example.com", "correct-horse-9");
+    expect(await p.verifyToken(token)).not.toBeNull();
+    await p.deleteAccount(user.id);
+    expect(await p.verifyToken(token)).toBeNull();
+    const { rows } = await pool.query("SELECT count(*)::int AS n FROM users");
+    expect(rows[0].n).toBe(0);
+    // The same email can sign up again after deletion.
+    await expect(p.signUp("gone@example.com", "correct-horse-9")).resolves.toBeDefined();
+  });
+
   it("sessions persist across provider instances (DB-backed)", async () => {
     const p1 = provider();
     await p1.signUp("persist@example.com", "correct-horse-9");

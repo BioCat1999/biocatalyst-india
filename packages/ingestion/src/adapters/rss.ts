@@ -165,6 +165,26 @@ export function classifyPressRelease(title: string): string | null {
   ) {
     return "clinical_trial_result";
   }
+  // Long-term / congress data readouts for marketed products carry no phase
+  // keyword (e.g. "Two-Year Data … Showed Sustained Efficacy and Safety at
+  // EADV Congress", "open-label extension … two years of treatment").
+  // Without this branch the runner drops them (eventType null) even though
+  // durability data is a genuine catalyst.
+  if (
+    has(
+      "open-label extension",
+      "open label extension",
+      "long-term data",
+      "two-year data",
+      "2-year data",
+      "three-year data",
+      "3-year data",
+      "durability of response",
+    ) &&
+    has("efficacy", "safety", "endpoint", "readout", "data")
+  ) {
+    return "clinical_trial_result";
+  }
   // Corporate.
   if (has("partnership", "collaborat", "licensing agreement", "license agreement", "joint venture", "strategic alliance")) {
     return "licensing_or_partnership";

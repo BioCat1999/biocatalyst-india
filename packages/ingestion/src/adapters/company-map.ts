@@ -333,3 +333,51 @@ export const GLOBAL_NEWS_PHRASES: string[] = [
 // declared before the indexes are built (const TDZ).
 const COMPANY_INDEX = buildIndex([...COMPANIES, ...GLOBAL_COMPANIES, ...IPO_COMPANIES]);
 const DRUG_INDEX = buildIndex(DRUGS);
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+interface BoundedMatcher {
+  canonical: string;
+  re: RegExp;
+}
+
+/**
+ * Word-boundary index: a key must appear as its own token(s), not fused
+ * inside a longer word. Plain substring matching false-attributes wire
+ * copy — "Supporting" contains the key `ortin`, "Single" contains `ngl`,
+ * "single-ascending" contains `ngl` — so noisy multi-company text (the
+ * PR Newswire adapter) uses these bounded variants. Lookarounds instead
+ * of `\b` so keys ending in punctuation still bound correctly. GDELT and
+ * ctgov keep the legacy substring matchers above: their inputs are
+ * pre-filtered, and changing them is a separate, deliberate decision.
+ */
+function buildBoundedIndex(index: { key: string; canonical: string }[]): BoundedMatcher[] {
+  return index.map(({ key, canonical }) => ({
+    canonical,
+    re: new RegExp(`(?<![a-z0-9])${escapeRegExp(key)}(?![a-z0-9])`),
+  }));
+}
+
+const BOUNDED_COMPANY_INDEX = buildBoundedIndex(COMPANY_INDEX);
+const BOUNDED_DRUG_INDEX = buildBoundedIndex(DRUG_INDEX);
+
+function matchBounded(index: BoundedMatcher[], raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const hay = raw.toLowerCase();
+  for (const { canonical, re } of index) {
+    if (re.test(hay)) return canonical;
+  }
+  return null;
+}
+
+/** Bounded variant of `matchCompanyName` — see `buildBoundedIndex`. */
+export function matchCompanyNameBounded(raw: string | null | undefined): string | null {
+  return matchBounded(BOUNDED_COMPANY_INDEX, raw ?? null);
+}
+
+/** Bounded variant of `matchDrugName` — see `buildBoundedIndex`. */
+export function matchDrugNameBounded(raw: string | null | undefined): string | null {
+  return matchBounded(BOUNDED_DRUG_INDEX, raw ?? null);
+}
