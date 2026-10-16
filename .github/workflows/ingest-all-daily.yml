@@ -1,0 +1,38 @@
+# Daily ingestion fallback for every registered source.
+#
+# Vercel Cron remains configured as the primary daily trigger. This workflow
+# provides an independent, visible scheduler so stale feeds cannot go unnoticed
+# when a platform cron stops firing. Each source runs separately and sequentially
+# to stay within serverless execution limits and reduce database contention.
+name: ingest-all-daily
+
+on:
+  schedule:
+    - cron: "47 3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        source:
+          - bse-fixture
+          - ctri-fixture
+          - pubmed-fixture
+          - ctgov
+          - gdelt
+          - press-rss
+          - prnewswire
+          - openfda
+    steps:
+      - name: Ingest ${{ matrix.source }}
+        run: |
+          curl --fail-with-body -sS --retry 2 --retry-all-errors --max-time 600 -X POST \
+            "https://biocatalyst-india.vercel.app/api/v1/admin/ingestion/run?source=${{ matrix.source }}" \
+            -H "Authorization: Bearer ${{ secrets.ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{}'

@@ -19,10 +19,9 @@
 #                 (already set there; the token never enters this file).
 # The workflow reads no database credential and writes nothing to the repo.
 #
-# Failure visibility: the step prints the endpoint's JSON response.
-# HTTP 500 (e.g. PR Newswire 403'ing Vercel's IPs — unproven until the
-# first runs) shows up in the Actions log; add `-f` to the curl to turn
-# those into failed (emailed) runs once the source is confirmed healthy.
+# Failure visibility: non-2xx responses fail the workflow and preserve
+# the response body in the Actions log, rather than silently reporting a
+# green run for a 401/403/500 response.
 name: ingest-prnewswire-hourly
 
 on:
@@ -39,7 +38,7 @@ jobs:
     steps:
       - name: Trigger prnewswire ingestion (single source)
         run: |
-          curl -sS -X POST \
+          curl --fail-with-body -sS --retry 2 --retry-all-errors --max-time 600 -X POST \
             "https://biocatalyst-india.vercel.app/api/v1/admin/ingestion/run?source=prnewswire" \
             -H "Authorization: Bearer ${{ secrets.ADMIN_TOKEN }}" \
             -H "Content-Type: application/json" \
