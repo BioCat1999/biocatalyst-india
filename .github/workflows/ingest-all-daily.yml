@@ -26,10 +26,12 @@ jobs:
       matrix:
         source:
           - ctgov
-          - gdelt
           - press-rss
           - prnewswire
           - openfda
+          # GDELT is the least reliable upstream and may consume the full
+          # request timeout, so run it last instead of blocking fresher feeds.
+          - gdelt
     steps:
       - name: Ingest ${{ matrix.source }}
         run: |
