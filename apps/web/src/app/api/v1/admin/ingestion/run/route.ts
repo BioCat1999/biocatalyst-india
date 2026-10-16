@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getPool, migrate } from "@biocatalyst/db";
+import { getPool } from "@biocatalyst/db";
 import {
   createAdapter,
   listSourceNames,
@@ -18,6 +18,10 @@ import { isAdminRequest, isCronRequest } from "@/lib/admin";
  *  - JSON body `{ "source": "bse-fixture" }` for one adapter,
  *    `{ "source": "all" }` (or no body) for every registered adapter; or
  *  - query param `?source=<name>` (body takes precedence when both given).
+ *
+ * Database migrations are a setup/deployment responsibility. They must not be
+ * run here because serverless route bundles do not contain the SQL migration
+ * directory and every ingestion request should operate on the deployed schema.
  *
  * Single-source runs return the run metrics object (as in M3); "all"
  * returns `{ sources: [...] }` with one metrics object per source.
@@ -43,7 +47,6 @@ export async function POST(req: NextRequest) {
   const sourceName = parsed.data.source ?? req.nextUrl.searchParams.get("source") ?? "all";
   try {
     const pool = getPool();
-    await migrate(pool); // idempotent — ensures migrations are applied
     if (sourceName === "all") {
       const sources = await runAllIngestion(pool);
       return NextResponse.json(
@@ -86,7 +89,6 @@ export async function GET(req: NextRequest) {
   const sourceName = req.nextUrl.searchParams.get("source") ?? "all";
   try {
     const pool = getPool();
-    await migrate(pool); // idempotent — ensures migrations are applied
     if (sourceName === "all") {
       const sources = await runAllIngestion(pool);
       return NextResponse.json(

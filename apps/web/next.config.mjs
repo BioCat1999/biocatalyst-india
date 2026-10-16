@@ -36,15 +36,6 @@ export const SECURITY_HEADERS = [
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@biocatalyst/types", "@biocatalyst/data"],
-  // The admin ingestion route runs the plain-SQL migration runner at runtime.
-  // Those SQL files live outside apps/web, so Next's automatic server trace
-  // cannot discover them from the dynamic fs reads in @biocatalyst/db. Include
-  // them explicitly in the Vercel function bundle.
-  outputFileTracingIncludes: {
-    "/api/v1/admin/ingestion/run": [
-      "../../packages/db/migrations/**/*.sql",
-    ],
-  },
   // The workspace packages use TypeScript ESM-style `.js` relative imports
   // (resolving to `.ts` sources). Teach webpack to map them so the
   // tsconfig-paths-mapped `@biocatalyst/data` src bundle resolves.
