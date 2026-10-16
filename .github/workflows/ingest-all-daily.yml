@@ -20,6 +20,9 @@ jobs:
   ingest:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # GDELT is a best-effort enrichment source. Keep attempting it daily, but
+    # do not fail the entire feed-health workflow when its upstream is down.
+    continue-on-error: ${{ matrix.source == 'gdelt' }}
     strategy:
       fail-fast: false
       max-parallel: 1
