@@ -2,6 +2,8 @@ import { render, fireEvent } from "@testing-library/react-native";
 import { EventCard } from "../EventCard";
 import type { EventCard as EventCardT } from "@biocatalyst/types";
 
+jest.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
+
 const event: EventCardT = {
   id: "e1",
   headline: "DCGI approves Demo Pharma's phase 3 trial",
@@ -32,7 +34,8 @@ describe("EventCard", () => {
   it("renders the headline, company/ticker, fact and source count", () => {
     const { getByText } = render(<EventCard event={event} onPress={() => {}} />);
     expect(getByText("DCGI approves Demo Pharma's phase 3 trial")).toBeTruthy();
-    expect(getByText("Demo Pharma (DEMOPHARMA) · Demomab · Type 2 diabetes")).toBeTruthy();
+    expect(getByText("DEMOPHARMA")).toBeTruthy();
+    expect(getByText("Demo Pharma · Demomab · Type 2 diabetes")).toBeTruthy();
     expect(getByText("DCGI granted approval on 29 Sep 2026.")).toBeTruthy();
     expect(getByText("1 source · primary")).toBeTruthy();
     expect(getByText("Regulatory approval")).toBeTruthy();

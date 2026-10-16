@@ -1,7 +1,7 @@
 /**
- * Sign in / sign up screens. Same credential rules as web (local auth,
- * no third-party providers). On success the modal closes and the
- * session is live app-wide via AuthContext.
+ * Mandatory sign in / sign up screens. Authentication uses the app's
+ * email/password accounts; any valid email address (including Gmail)
+ * can be used. AuthContext switches the root navigator after success.
  */
 import React, { useState } from "react";
 import {
@@ -51,54 +51,75 @@ function AuthForm({
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={styles.form}
-    >
-      <Text style={styles.title}>{mode === "signin" ? "Welcome back" : "Create account"}</Text>
-      <Text style={styles.subtitle}>
-        {mode === "signin"
-          ? "Sign in to manage your watchlist and alerts."
-          : "One account for watchlist and alerts. Browsing stays anonymous."}
-      </Text>
-      <Text style={styles.label}>Email</Text>
-      <TextInput
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        autoCorrect={false}
-        keyboardType="email-address"
-        textContentType={mode === "signin" ? "username" : "emailAddress"}
-        style={styles.input}
-        accessibilityLabel="Email"
-      />
-      <Text style={styles.label}>Password</Text>
-      <TextInput
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        textContentType="password"
-        style={styles.input}
-        accessibilityLabel="Password"
-      />
-      {(localError || error) && <Text style={styles.error}>{localError ?? error}</Text>}
-      <Pressable
-        onPress={submit}
-        disabled={busy}
-        accessibilityRole="button"
-        style={[styles.button, busy && styles.buttonDisabled]}
-      >
-        {busy ? (
-          <ActivityIndicator color={colors.white} />
-        ) : (
-          <Text style={styles.buttonText}>{mode === "signin" ? "Sign in" : "Sign up"}</Text>
-        )}
-      </Pressable>
-      <Pressable onPress={onSwitch} style={styles.switchRow} accessibilityRole="button">
-        <Text style={styles.switchText}>
-          {mode === "signin" ? "New here? Create an account" : "Have an account? Sign in"}
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.page}>
+      <View style={styles.brandPanel}>
+        <View style={styles.logoMark}>
+          <Text style={styles.logoText}>BI</Text>
+        </View>
+        <Text style={styles.brand}>BIOCATALYST INDIA</Text>
+        <Text style={styles.tagline}>Biopharma intelligence, distilled.</Text>
+      </View>
+      <View style={styles.sheet}>
+        <Text style={styles.eyebrow}>{mode === "signin" ? "MEMBER ACCESS" : "GET STARTED"}</Text>
+        <Text style={styles.title}>{mode === "signin" ? "Welcome back" : "Create your account"}</Text>
+        <Text style={styles.subtitle}>
+          {mode === "signin"
+            ? "Sign in to access the catalyst feed, watchlists and alerts."
+            : "Use any email address, including Gmail, to access the app."}
         </Text>
-      </Pressable>
+        <Text style={styles.label}>Email address</Text>
+        <TextInput
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
+          keyboardType="email-address"
+          textContentType={mode === "signin" ? "username" : "emailAddress"}
+          placeholder="you@example.com"
+          placeholderTextColor={colors.placeholder}
+          style={styles.input}
+          accessibilityLabel="Email address"
+        />
+        <Text style={styles.label}>Password</Text>
+        <TextInput
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          autoComplete={mode === "signin" ? "current-password" : "new-password"}
+          textContentType={mode === "signin" ? "password" : "newPassword"}
+          placeholder={mode === "signin" ? "Enter your password" : "Create a secure password"}
+          placeholderTextColor={colors.placeholder}
+          style={styles.input}
+          accessibilityLabel="Password"
+        />
+        {(localError || error) && (
+          <View style={styles.errorBox}>
+            <Text style={styles.error}>{localError ?? error}</Text>
+          </View>
+        )}
+        <Pressable
+          onPress={submit}
+          disabled={busy}
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.button,
+            busy && styles.buttonDisabled,
+            pressed && !busy && styles.buttonPressed,
+          ]}
+        >
+          {busy ? (
+            <ActivityIndicator color={colors.white} />
+          ) : (
+            <Text style={styles.buttonText}>{mode === "signin" ? "Sign in securely" : "Create account"}</Text>
+          )}
+        </Pressable>
+        <Pressable onPress={onSwitch} style={styles.switchRow} accessibilityRole="button">
+          <Text style={styles.switchMuted}>{mode === "signin" ? "New to Biocatalyst? " : "Already have an account? "}</Text>
+          <Text style={styles.switchText}>{mode === "signin" ? "Create account" : "Sign in"}</Text>
+        </Pressable>
+        <Text style={styles.privacy}>Your credentials are encrypted in transit and your session is stored securely on this device.</Text>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -109,10 +130,7 @@ export function SignInScreen({ navigation }: SignInProps) {
     <Screen>
       <AuthForm
         mode="signin"
-        onSubmit={async (email, password) => {
-          await signIn(email, password);
-          navigation.goBack();
-        }}
+        onSubmit={signIn}
         onSwitch={() => navigation.replace("SignUp")}
       />
     </Screen>
@@ -125,10 +143,7 @@ export function SignUpScreen({ navigation }: SignUpProps) {
     <Screen>
       <AuthForm
         mode="signup"
-        onSubmit={async (email, password) => {
-          await signUp(email, password);
-          navigation.goBack();
-        }}
+        onSubmit={signUp}
         onSwitch={() => navigation.replace("SignIn")}
       />
     </Screen>
@@ -136,31 +151,59 @@ export function SignUpScreen({ navigation }: SignUpProps) {
 }
 
 const styles = StyleSheet.create({
-  form: { flex: 1, padding: spacing.xl },
-  title: { fontSize: fontSize.title, fontWeight: "700", color: colors.navy },
-  subtitle: { fontSize: fontSize.md, color: colors.muted, marginTop: spacing.sm, marginBottom: spacing.lg },
-  label: { fontSize: fontSize.sm, fontWeight: "700", color: colors.muted, marginTop: spacing.md },
+  page: { flex: 1, backgroundColor: colors.navy, justifyContent: "flex-end" },
+  brandPanel: { flex: 1, minHeight: 210, alignItems: "center", justifyContent: "center", paddingTop: spacing.xl },
+  logoMark: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.tealBright,
+    marginBottom: spacing.md,
+  },
+  logoText: { color: colors.white, fontSize: fontSize.xl, fontWeight: "800", letterSpacing: -0.5 },
+  brand: { color: colors.white, fontSize: fontSize.lg, fontWeight: "800", letterSpacing: 2 },
+  tagline: { color: colors.navyText, fontSize: fontSize.sm, marginTop: spacing.xs },
+  sheet: {
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: 32,
+  },
+  eyebrow: { color: colors.teal, fontSize: fontSize.xs, fontWeight: "800", letterSpacing: 1.4 },
+  title: { fontSize: 28, fontWeight: "800", color: colors.navy, marginTop: spacing.xs, letterSpacing: -0.5 },
+  subtitle: { fontSize: fontSize.md, color: colors.muted, marginTop: spacing.sm, marginBottom: spacing.md, lineHeight: 22 },
+  label: { fontSize: fontSize.sm, fontWeight: "700", color: colors.ink, marginTop: spacing.md },
   input: {
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: radius,
-    backgroundColor: colors.card,
+    borderRadius: radius + 2,
+    backgroundColor: colors.inputBg,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    paddingVertical: 14,
     fontSize: fontSize.md,
     color: colors.ink,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
   },
-  error: { color: colors.red, fontSize: fontSize.sm, marginTop: spacing.md },
+  errorBox: { backgroundColor: colors.redSoft, borderRadius: radius, padding: spacing.md, marginTop: spacing.md },
+  error: { color: colors.red, fontSize: fontSize.sm, lineHeight: 19 },
   button: {
-    backgroundColor: colors.teal,
-    borderRadius: radius,
-    paddingVertical: spacing.md,
+    backgroundColor: colors.navy,
+    borderRadius: radius + 2,
+    minHeight: 52,
+    justifyContent: "center",
+    paddingVertical: 14,
     alignItems: "center",
-    marginTop: spacing.lg,
+    marginTop: spacing.xl,
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: colors.white, fontWeight: "700", fontSize: fontSize.md },
-  switchRow: { marginTop: spacing.lg, alignItems: "center" },
-  switchText: { color: colors.teal, fontWeight: "600", fontSize: fontSize.md },
+  buttonPressed: { opacity: 0.9, transform: [{ scale: 0.995 }] },
+  buttonText: { color: colors.white, fontWeight: "800", fontSize: fontSize.md },
+  switchRow: { marginTop: spacing.lg, justifyContent: "center", flexDirection: "row" },
+  switchMuted: { color: colors.muted, fontSize: fontSize.sm },
+  switchText: { color: colors.teal, fontWeight: "700", fontSize: fontSize.sm },
+  privacy: { color: colors.placeholder, textAlign: "center", fontSize: 11, lineHeight: 16, marginTop: spacing.lg },
 });

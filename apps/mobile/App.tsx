@@ -9,8 +9,8 @@ import { RootNavigator } from "./src/navigation/RootNavigator";
  * Biocatalyst India — Expo mobile app (Milestone 9).
  *
  * Thin client over the existing /api/v1/* surface; all data and auth
- * come from the web backend. Anonymous browsing works everywhere;
- * watchlist/alerts require sign-in (same rules as web, spec §14).
+ * come from the web backend. A valid account is required before the
+ * root navigator exposes any app content.
  */
 export default function App() {
   return (

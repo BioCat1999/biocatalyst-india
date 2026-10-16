@@ -2,8 +2,8 @@
  * Follow/unfollow toggle for companies and drugs.
  *
  * Reads the signed-in user's watchlist, shows the current state, and
- * toggles via POST/DELETE /api/v1/watchlist. Anonymous users are sent
- * to the sign-in screen (same auth-gating as web).
+ * toggles via POST/DELETE /api/v1/watchlist. Missing sessions are sent
+ * to the sign-in screen as a defensive fallback.
  */
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";

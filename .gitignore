@@ -1,4 +1,9 @@
 node_modules/
+.expo/
+.pnpm-store/
+apps/mobile/.expo/
+apps/mobile/android/
+apps/mobile/ios/
 .next/
 dist/
 .turbo/
@@ -8,3 +13,5 @@ dist/
 .DS_Store
 coverage/
 backups/   # local DB backups (db-backup.sh copies .env files here — never commit)
+.vercel
+.env*

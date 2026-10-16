@@ -1,111 +1,57 @@
 # Privacy labels — Biocatalyst India
 
-Milestone 10 (store readiness). Answers below are grounded in the app's
-**actual** behavior as of Milestone 10: a self-hosted Next.js API + Postgres
-on the operator's own server, and an Expo client that talks **only** to that
-server. No analytics, no advertising, no third-party SDKs, no tracking, no
-data sold or shared. Anything uncertain is marked **verify before submission**.
+These answers reflect version 1.0.0. The client communicates with the
+operator's HTTPS API and includes no advertising, analytics, attribution, or
+crash-reporting SDK. Data is not sold and is not used for tracking.
 
-Mobile app data handling (`apps/mobile`):
-- Sign-in email: kept in the OS secure store on-device, and sent to the
-  user's own server for authentication (`POST /api/v1/auth/signin`). Never
-  sent anywhere else.
-- Device push token: read via the local-only `getDevicePushTokenAsync()`,
-  kept in the OS secure store, and registered with the user's own server
-  (`POST /api/v1/push-tokens`, auth-required). Never sent to Expo, Apple,
-  Google/Firebase, or any third party.
-- No analytics events, no crash-reporting SDK, no advertising ID collection.
+## Data the app handles
 
-Web app data handling (`apps/web`): email + password hash, watchlist items,
-in-app alerts, issue reports (optional contact text), push tokens, and
-per-IP rate-limiting logs (30-day retention) — all stored on the operator's
-own server. See `apps/web/src/app/privacy/page.tsx` for the published policy.
+- Email address and password are submitted only when a person chooses to
+  create or use an account. The server stores the email and a password hash;
+  the app stores only its session credential in the OS secure store.
+- Signed-in users can save companies/drugs to a watchlist and receive in-app
+  alerts. These account-linked selections and app interactions are stored on
+  the operator's server to provide the requested functionality.
+- An optional support/data-issue report can include contact text supplied by
+  the user.
+- Normal server security and rate-limiting logs can contain an IP address and
+  are retained according to the published privacy policy.
 
----
-
-## Apple App Privacy ("nutrition label")
-
-App Store Connect → App Privacy. Answers for Biocatalyst India:
-
-**Do you collect data from this app?** YES
-
-| Data type (Apple category) | Collected | Linked to user | Used for tracking | Purpose |
-|---|---|---|---|---|
-| Email Address (Contact Info) | Yes — only if the user creates an account | Yes | No | App Functionality (sign-in, watchlist, alerts) |
-| Device ID (Identifiers) | Yes — device push token, only if the user enables notifications | Yes | No | App Functionality (future push delivery) |
-
-**Data Not Collected** for every other Apple data type: Location, Contacts,
-Health, Financial Info, Browsing History, Search History, Usage Data,
-Diagnostics, etc. — none collected.
-
-**Key declarations:**
-- "Do you or your third-party partners use data for tracking purposes?" → **No.**
-- "Is any data sold or shared with data brokers?" → **No.**
-- "Is data used for third-party advertising?" → **No.**
-
-**Verify before submission:**
-- If push delivery is enabled before 1.0.0 submission (currently deferred),
-  confirm whether Apple's answers change for the relay chosen (direct
-  FCM/APNs from the user's server vs Expo Push Service — the latter would
-  add a third-party data processor to disclose).
-- **verify before submission:** the published Privacy Policy URL (App Store
-  Connect requires one) must be the live `https://<prod-domain>/privacy`
-  page, and it must mention push-token storage (updated in Milestone 10).
-
----
+The app does not collect a push token in version 1.0.0. It does not collect
+precise location, contacts, photos, videos, audio, health, financial-account,
+messages, advertising ID, or device sensor data.
 
 ## Google Play Data safety
 
-Play Console → App content → Data safety questionnaire. Answers for
-Biocatalyst India:
+Answer **Yes** to collection and **No** to sharing.
 
-**Does your app collect or share any of the required user data types?** YES —
-collects; does **not** share.
+| Play data type | Collected | Purpose | Required? |
+|---|---|---|---|
+| Email address (Personal info) | Required account sign-in | Account management, app access and functionality | Required; users may use any valid email address, including Gmail |
+| User IDs (Personal info) | Internal account identifier | Account management | Optional; created with an account |
+| App interactions (App activity) | Watchlist choices and in-app alert state | App functionality and personalization | Optional; signed-in feature |
+| Other user-generated content | Text deliberately submitted in a support/data issue report | Developer communications and app functionality | Optional |
 
-Data types collected (all stored on the operator's own server, none shared
-with third parties):
+Security answers:
 
-| Data type | Collected | Shared | Purpose | Optional? |
-|---|---|---|---|---|
-| Email address (Personal info) | Yes — account sign-up only | No | Account management (sign-in, watchlist, alerts) | Yes — the app is fully usable anonymously without an account |
-| Device or other IDs — push token (Device or other IDs) | Yes — only after the user enables notifications | No | App functionality (push alerts) | Yes — opt-in per device |
+- Data is encrypted in transit: **Yes** (`https://biocatalyst-india.vercel.app`).
+- Users can request deletion: **Yes**. The Account screen provides in-app
+  deletion, and the public support/privacy pages provide a contact route.
+- Data is shared with third parties: **No** for the app's product purposes.
+- Data is used for advertising or tracking: **No**.
 
-**Security practices (answer truthfully):**
-- "Is all user data encrypted in transit?" → **Yes, provided the production
-  deployment serves HTTPS** — verify before submission: the launch deployment
-  must terminate TLS (the dev default `http://localhost:3000` is not
-  submittable). Flag the TLS setup as a launch blocker if not done.
-- "Do you provide a way for users to request deletion of their data?" →
-  **Yes — via the operator contact address** (account deletion removes
-  credentials, watchlists, alerts, push tokens via FK cascade). **Verify
-  before submission:** the privacy policy now uses bio1941999@gmail.com
-  (set 2026-10-01), and the deletion path must be exercised at least once.
+## Apple App Privacy
 
-**Data types NOT collected:** Location, Contacts, Photos/Videos, Audio,
-Files, Calendar, Health, Financial info, Messages, App activity, Web
-browsing — none.
+For a future iOS submission, disclose Email Address, User ID, Product
+Interaction, and Other User Content as linked to the user and used for App
+Functionality. Mark all as not used for tracking. Reconfirm Apple's current
+category wording in App Store Connect when that submission is prepared.
 
-**Verify before submission:**
-- The Data safety "account deletion" answer must match the real,
-  tested deletion path. In-app deletion is implemented
-  (`DELETE /api/v1/auth/account` + the mobile Account screen's
-  "Delete account" action, which cascades to watchlist, alerts, and
-  push tokens) alongside the contact-email route — exercise the in-app
-  path once against production before answering.
-- Re-confirm after any dependency change: no new SDK may be added without
-  re-answering this questionnaire.
+## Live policy and deletion links
 
----
+- Privacy policy: `https://biocatalyst-india.vercel.app/privacy`
+- Support: `https://biocatalyst-india.vercel.app/support`
+- Account deletion: available inside the signed-in Account screen
 
-## Pre-submission checklist (both stores)
-
-- [x] Operator email set: bio1941999@gmail.com (replaced 2026-10-01)
-      (privacy policy page + store listings + this doc's deletion path)
-- [x] Privacy Policy URL is live at the production domain
-      (`https://biocatalyst-india.vercel.app/privacy`, verified 2026-10-06)
-- [x] Privacy policy mentions push-token storage (added M10)
-- [x] Production deployment serves HTTPS (Vercel, verified 2026-10-06)
-- [x] Apple "in-app account deletion" requirement: in-app deletion
-      implemented (API + mobile Account screen); exercise it once live
-      before submission
-- [ ] No new third-party SDK added since this document was written
+Re-run this audit if push, analytics, ads, payments, social features, or any
+new native SDK is introduced.

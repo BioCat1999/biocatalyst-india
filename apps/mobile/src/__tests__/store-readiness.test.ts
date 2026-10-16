@@ -7,7 +7,7 @@
  *    files; icon / splash / adaptive-icon are wired for both platforms.
  * 3. Permission audit: no camera/location/microphone/contacts/calendar
  *    (or any unexpected) permission is declared or implied by config;
- *    the only Expo config plugin is expo-notifications.
+ *    unfinished remote-push dependencies are absent from the first release.
  * 4. docs/store/ is complete: permissions, privacy-labels, screenshots,
  *    build, crash-reporting, listing.
  */
@@ -95,16 +95,17 @@ describe("permission audit", () => {
     for (const f of forbidden) expect(raw).not.toContain(f);
   });
 
-  it("uses no Expo config plugin beyond expo-notifications", () => {
+  it("uses only the local release-signing config plugin", () => {
     const plugins = appJson().expo.plugins as unknown[];
-    expect(plugins).toEqual(["expo-notifications"]);
+    expect(plugins).toEqual(["./plugins/withAndroidReleaseSigning"]);
   });
 
-  it("does not pin android.permissions (library manifest merge provides notification permissions)", () => {
-    // Setting android.permissions: [] would strip POST_NOTIFICATIONS /
-    // RECEIVE_BOOT_COMPLETED declared by expo-notifications' own manifest
-    // and silently break future push delivery — see docs/store/permissions.md.
-    expect(appJson().expo.android.permissions).toBeUndefined();
+  it("blocks permissions that the app does not need", () => {
+    expect(appJson().expo.android.blockedPermissions).toEqual([
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.SYSTEM_ALERT_WINDOW",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+    ]);
   });
 });
 

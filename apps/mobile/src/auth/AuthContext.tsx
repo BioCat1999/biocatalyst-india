@@ -1,8 +1,8 @@
 /**
  * Auth state for the mobile app.
  *
- * Same rules as web (spec §14): anonymous browsing everywhere; the
- * session is only needed for watchlist/alerts. The session token itself
+ * The mobile client requires a valid session before exposing app content.
+ * The session token itself
  * never leaves expo-secure-store — components only see the public
  * user profile returned by the API.
  */
@@ -20,7 +20,7 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  /** Permanently delete the account, then return to anonymous browsing. */
+  /** Permanently delete the account, then return to the sign-in gate. */
   deleteAccount: () => Promise<void>;
   refresh: () => Promise<void>;
   clearError: () => void;

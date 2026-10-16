@@ -1,6 +1,7 @@
 import React from "react";
-import { Pressable, Text, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { colors } from "../theme";
 import type { MainTabParamList, RootStackParamList } from "./types";
@@ -28,7 +29,7 @@ function SearchButton({ onPress }: { onPress: () => void }) {
       accessibilityLabel="Search"
       style={styles.headerButton}
     >
-      <Text style={styles.headerIcon}>{"\uD83D\uDD0D"}</Text>
+      <Ionicons name="search-outline" size={22} color={colors.white} />
     </Pressable>
   );
 }
@@ -46,26 +47,44 @@ function IpoButton({ onPress }: { onPress: () => void }) {
       accessibilityLabel="IPO tracker"
       style={styles.headerButton}
     >
-      <Text style={styles.headerIcon}>{"\uD83D\uDCC8"}</Text>
+      <Ionicons name="trending-up-outline" size={22} color={colors.white} />
     </Pressable>
   );
 }
 
 /**
  * Bottom tabs: Feed, Search, Global, Watchlist, Alerts, Account.
- * Anonymous browsing works on every tab; Watchlist/Alerts/Account
- * prompt for sign-in when no session exists (same rules as web).
+ * RootNavigator only mounts this navigator for authenticated members.
  */
 export function MainTabs() {
   return (
     <Tab.Navigator
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerStyle: { backgroundColor: colors.navy },
         headerTintColor: colors.white,
-        headerTitleStyle: { fontWeight: "700" },
+        headerShadowVisible: false,
+        headerTitleStyle: { fontWeight: "800", fontSize: 18 },
         tabBarActiveTintColor: colors.teal,
         tabBarInactiveTintColor: colors.muted,
-      }}
+        tabBarLabelStyle: { fontSize: 10, fontWeight: "700", marginBottom: 6 },
+        tabBarStyle: {
+          height: 68,
+          paddingTop: 7,
+          borderTopColor: colors.line,
+          backgroundColor: colors.card,
+        },
+        tabBarIcon: ({ color, size, focused }) => {
+          const icons = {
+            Feed: focused ? "pulse" : "pulse-outline",
+            Search: focused ? "search" : "search-outline",
+            Global: focused ? "globe" : "globe-outline",
+            Watchlist: focused ? "bookmark" : "bookmark-outline",
+            Alerts: focused ? "notifications" : "notifications-outline",
+            Account: focused ? "person-circle" : "person-circle-outline",
+          } as const;
+          return <Ionicons name={icons[route.name]} size={focused ? size + 1 : size} color={color} />;
+        },
+      })}
     >
       <Tab.Screen
         name="Feed"
@@ -131,6 +150,5 @@ export function MainTabs() {
 
 const styles = StyleSheet.create({
   headerRow: { flexDirection: "row", alignItems: "center" },
-  headerButton: { marginRight: 16, padding: 4 },
-  headerIcon: { fontSize: 20, color: colors.white },
+  headerButton: { marginRight: 14, padding: 5 },
 });

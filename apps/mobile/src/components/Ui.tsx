@@ -107,6 +107,11 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginHorizontal: spacing.lg,
     marginVertical: spacing.sm,
+    shadowColor: colors.navy,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 1,
   },
   sectionTitle: {
     fontSize: fontSize.lg,
@@ -140,9 +145,9 @@ const styles = StyleSheet.create({
   chipText: { color: colors.muted, fontSize: fontSize.sm, fontWeight: "600" },
   chipTextActive: { color: colors.white },
   primaryButton: {
-    backgroundColor: colors.teal,
+    backgroundColor: colors.navy,
     borderRadius: radius,
-    paddingVertical: spacing.md,
+    paddingVertical: 14,
     alignItems: "center",
     marginTop: spacing.md,
   },

@@ -22,7 +22,7 @@ submission).
 > • Company, drug, and clinical-trial pages connecting events to entities
 > • Market-reaction windows showing exactly what was measured, and by whom
 > • Watchlists with alerts for the companies and drugs you follow
-> • Anonymous browsing — an account is only needed for watchlists and alerts
+> • Secure member access with any valid email address, including Gmail
 >
 > Built for investors, analysts, and industry watchers who need trustworthy,
 > source-linked intelligence on India's pharma and biotech sector. Your data
@@ -60,7 +60,7 @@ terms if over 100.)
 |---|---|
 | Support URL | `https://biocatalyst-india.vercel.app/support` |
 | Marketing URL | `https://biocatalyst-india.vercel.app` |
-| Privacy Policy URL | `https://biocatalyst-india.vercel.app/privacy` (live; mentions push-token storage) |
+| Privacy Policy URL | `https://biocatalyst-india.vercel.app/privacy` |
 | Support email | bio1941999@gmail.com |
 | Copyright | [Operator/legal entity name + year — user provides] |
 
@@ -77,8 +77,8 @@ bio1941999@gmail.com (set 2026-10-01).
 • Curated catalyst-event feed for Indian pharma & biotech, filterable by event type
 • Event detail with source links, fact box, and market-reaction windows
 • Company, drug, and clinical-trial pages
-• Watchlists with in-app alerts (push-notification support built in; delivery coming in a future update)
-• Anonymous browsing; optional free account for watchlists and alerts
+• Watchlists with in-app alerts
+• Secure email account required for personalized app access
 • No analytics, no ads, no third-party tracking
 ```
 
@@ -91,5 +91,5 @@ bullets grouped as Added / Improved / Fixed.
 - [ ] Keywords re-counted to ≤100 chars in App Store Connect
 - [ ] Age-rating questionnaires answered live; ratings match § "Content / age rating"
 - [ ] Support + marketing URLs live; support email real and monitored
-- [ ] Privacy Policy URL live and mentioning push-token storage
+- [ ] Privacy Policy URL live and consistent with the first-release data flow
 - [ ] Description contains no unsubstantiated claims (all features above ship in 1.0.0)

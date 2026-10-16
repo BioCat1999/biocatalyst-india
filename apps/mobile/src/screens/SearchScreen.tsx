@@ -1,6 +1,6 @@
 /**
  * Universal search (spec §4.6): one input, results grouped by entity
- * type — companies, drugs, trials, events. Debounced, anonymous.
+ * type — companies, drugs, trials, events. Debounced for signed-in members.
  *
  * Tab-scoped search: each bottom tab's header search button opens this
  * screen with a `scope` param (Feed -> events, Watchlist -> companies),

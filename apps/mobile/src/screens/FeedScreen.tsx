@@ -1,9 +1,10 @@
 /**
  * Catalyst Feed (spec §4.1): newest-first event cards, compact filter
- * chips, cursor pagination, pull-to-refresh. Fully anonymous.
+ * chips, cursor pagination, and pull-to-refresh for signed-in members.
  */
 import React, { useCallback, useEffect, useState } from "react";
-import { FlatList, RefreshControl, StyleSheet, View } from "react-native";
+import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { type CompositeScreenProps } from "@react-navigation/native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -12,7 +13,7 @@ import { getApiClient } from "../api";
 import type { MainTabParamList, RootStackParamList } from "../navigation/types";
 import { EventCard } from "../components/EventCard";
 import { Chip, EmptyView, ErrorView, LoadingView, Screen } from "../components/Ui";
-import { spacing } from "../theme";
+import { colors, fontSize, spacing } from "../theme";
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<MainTabParamList, "Feed">,
@@ -96,6 +97,15 @@ export function FeedScreen({ navigation }: Props) {
 
   return (
     <Screen>
+      <View style={styles.intro}>
+        <View style={styles.introIcon}>
+          <Ionicons name="pulse" size={20} color={colors.teal} />
+        </View>
+        <View style={styles.introCopy}>
+          <Text style={styles.introEyebrow}>INDIA BIOPHARMA INTELLIGENCE</Text>
+          <Text style={styles.introText}>Material clinical, regulatory and deal catalysts—in one signal-first feed.</Text>
+        </View>
+      </View>
       <View style={styles.chips}>
         <FlatList
           horizontal
@@ -118,6 +128,7 @@ export function FeedScreen({ navigation }: Props) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.5}
+        contentContainerStyle={styles.feedContent}
         ListEmptyComponent={<EmptyView message="No catalyst events yet." />}
         ListFooterComponent={loadingMore ? <LoadingView label="Loading more…" /> : null}
         renderItem={({ item }) => (
@@ -132,6 +143,27 @@ export function FeedScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  chips: { paddingTop: spacing.sm },
+  intro: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.navy,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+  introIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.tealSoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: spacing.md,
+  },
+  introCopy: { flex: 1 },
+  introEyebrow: { color: colors.tealBright, fontSize: 10, fontWeight: "800", letterSpacing: 1.1 },
+  introText: { color: colors.white, fontSize: fontSize.sm, lineHeight: 19, marginTop: 3 },
+  chips: { paddingTop: spacing.md, backgroundColor: colors.bg },
   chipRow: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+  feedContent: { paddingBottom: spacing.xl },
 });

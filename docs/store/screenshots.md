@@ -45,7 +45,7 @@ increasingly expects them and they cost one extra capture session.
 | 5 | Search | Grouped results (companies / drugs / trials) | Pre-fill query "sun" or similar with real results |
 | 6 | Watchlist | Followed entities | Signed-in staging account |
 | 7 | Alerts | Alert list, unread state | Same staging account with unread alerts |
-| 8 | Account | Push-notification section | Shows the permission rationale copy |
+| 8 | Account | Account controls and privacy links | Shows sign-out, deletion, support, and policy access |
 
 App preview video is optional — skip for 1.0.0.
 

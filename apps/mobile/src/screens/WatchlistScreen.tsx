@@ -1,7 +1,7 @@
 /**
  * Watchlist (spec §4.7): the signed-in user's followed companies and
- * drugs, with instant unfollow. Anonymous users get a sign-in prompt —
- * same gating as web.
+ * drugs, with instant unfollow. Root navigation requires authentication;
+ * the local no-session state remains as a defensive fallback.
  */
 import React, { useCallback } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
