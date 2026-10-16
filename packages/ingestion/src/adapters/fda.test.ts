@@ -95,6 +95,19 @@ describe("fdaDateToIso", () => {
 });
 
 describe("OpenFdaAdapter", () => {
+  it("treats openFDA's 404 no-results response as an empty successful window", async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(JSON.stringify({ error: { code: "NOT_FOUND" } }), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      }),
+    ) as unknown as typeof fetch;
+    const adapter = new OpenFdaAdapter(fetchImpl);
+
+    await expect(adapter.fetchSince("2026-10-01")).resolves.toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it("fetches approvals and recalls, advancing the cursor", async () => {
     const adapter = new OpenFdaAdapter(stubFetch());
     const docs = await adapter.fetchSince("2026-09-01");

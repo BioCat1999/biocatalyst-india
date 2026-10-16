@@ -37,7 +37,9 @@ export const FDA_SOURCE_NAME = "openfda";
 const API_BASE = "https://api.fda.gov";
 const REQUEST_TIMEOUT_MS = 20_000;
 const FIRST_RUN_LOOKBACK_DAYS = 30;
-const PAGE_LIMIT = 100;
+// Drugs@FDA caps a single response at 99 records (the enforcement endpoint's
+// cap is higher), so use the lower shared limit for both queries.
+const PAGE_LIMIT = 99;
 const USER_AGENT = "BiocatalystIndia/1.0 (personal research use; openFDA ingestion)";
 
 const RECALL_CONFIDENCE = 0.85;
@@ -138,10 +140,18 @@ export class OpenFdaAdapter implements SourceAdapter {
     const url =
       `${API_BASE}${path}?search=${encodeURIComponent(search)}` +
       `&limit=${PAGE_LIMIT}${apiKeyParam()}`;
-    const data = (await fetchJson(this.fetchImpl, url, {
-      userAgent: USER_AGENT,
-      timeoutMs: REQUEST_TIMEOUT_MS,
-    })) as { results?: unknown[]; error?: unknown };
+    let data: { results?: unknown[]; error?: unknown };
+    try {
+      data = (await fetchJson(this.fetchImpl, url, {
+        userAgent: USER_AGENT,
+        timeoutMs: REQUEST_TIMEOUT_MS,
+      })) as { results?: unknown[]; error?: unknown };
+    } catch (err) {
+      // openFDA uses HTTP 404 for a valid query with no matching records.
+      // A quiet source window is not an ingestion failure.
+      if (err instanceof Error && /HTTP 404\b/.test(err.message)) return [];
+      throw err;
+    }
     if (data.error) return [];
     return Array.isArray(data.results) ? data.results : [];
   }
