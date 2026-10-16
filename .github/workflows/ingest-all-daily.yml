@@ -7,6 +7,11 @@
 name: ingest-all-daily
 
 on:
+  # Also run when this workflow itself changes, so a scheduler repair can
+  # be validated immediately without needing a personal API token.
+  push:
+    branches: [main]
+    paths: [".github/workflows/ingest-all-daily.yml"]
   schedule:
     - cron: "47 3 * * *"
   workflow_dispatch: {}
