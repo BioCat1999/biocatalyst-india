@@ -8,7 +8,7 @@
  * (spec §7: "Add sources one at a time").
  *
  * Sources: three fixture adapters (offline dev/test data — inert after
- * their first run thanks to cursoring) plus three LIVE adapters that call
+ * their first run thanks to cursoring) plus live adapters that call
  * free, keyless public endpoints:
  *   - `ctgov`: ClinicalTrials.gov API v2 (trials)
  *   - `gdelt`: GDELT DOC 2.0 API (news)
@@ -16,6 +16,8 @@
  *   - `prnewswire`: PR Newswire category wire feeds (no API keys) —
  *     multi-company, per-item attribution; needs hourly polling
  *   - `openfda`: FDA drug approvals + recalls (no API key)
+ *   - `pubmed`: NCBI PubMed affiliation search (no API key)
+ *   - `sebi-rss`: official SEBI enforcement RSS (no API key)
  */
 import type { Pool } from "pg";
 import type { SourceAdapter } from "./adapter.js";
