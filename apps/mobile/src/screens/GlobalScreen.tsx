@@ -10,7 +10,7 @@ import type { CompositeScreenProps } from "@react-navigation/native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { ApiError, type CompanyListItem } from "@biocatalyst/api-client";
-import { getApiClient } from "../api";
+import { getCachedGlobalCompanies, loadGlobalCompanies } from "../contentCache";
 import type { MainTabParamList, RootStackParamList } from "../navigation/types";
 import { Card, EmptyView, ErrorView, LoadingView, Screen } from "../components/Ui";
 import { colors, fontSize, spacing } from "../theme";
@@ -22,14 +22,15 @@ type Props = CompositeScreenProps<
 >;
 
 export function GlobalScreen({ navigation }: Props) {
-  const [items, setItems] = useState<CompanyListItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = getCachedGlobalCompanies();
+  const [items, setItems] = useState<CompanyListItem[]>(() => cached?.items ?? []);
+  const [loading, setLoading] = useState(cached === null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
     try {
-      const res = await getApiClient().listCompanies("global");
+      const res = await loadGlobalCompanies(force);
       setItems(res.items);
       setError(null);
     } catch (err) {
@@ -66,7 +67,7 @@ export function GlobalScreen({ navigation }: Props) {
       <FlatList
         data={items}
         keyExtractor={(c) => c.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} />}
         ListEmptyComponent={<EmptyView message="No global companies tracked yet." />}
         ListHeaderComponent={
           <Text style={styles.blurb}>

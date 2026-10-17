@@ -14,18 +14,21 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ slug: stri
   const company = await getCompany(slug);
   if (!company) return NextResponse.json({ error: "company not found" }, { status: 404 });
   const patents = await getPatentsForCompany(company.id);
-  return NextResponse.json({
-    items: patents.map((p) => ({
-      patentNumber: p.patentNumber,
-      applNo: p.applNo,
-      productNo: p.productNo,
-      tradeName: p.tradeName,
-      applicant: p.applicant,
-      activeIngredient: p.activeIngredient,
-      expiryDate: p.expiryDate,
-      drugSubstanceFlag: p.drugSubstanceFlag,
-      drugProductFlag: p.drugProductFlag,
-      delisted: p.delisted,
-    })),
-  });
+  return NextResponse.json(
+    {
+      items: patents.map((p) => ({
+        patentNumber: p.patentNumber,
+        applNo: p.applNo,
+        productNo: p.productNo,
+        tradeName: p.tradeName,
+        applicant: p.applicant,
+        activeIngredient: p.activeIngredient,
+        expiryDate: p.expiryDate,
+        drugSubstanceFlag: p.drugSubstanceFlag,
+        drugProductFlag: p.drugProductFlag,
+        delisted: p.delisted,
+      })),
+    },
+    { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" } },
+  );
 }

@@ -15,13 +15,16 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ slug: stri
   const company = await getCompany(slug);
   if (!company) return NextResponse.json({ error: "company not found" }, { status: 404 });
   const links = getGlobalLinksForCompany(slug);
-  return NextResponse.json({
-    items: links.map(({ link, otherCompany }) => ({
-      id: link.id,
-      kind: link.kind,
-      title: link.title,
-      description: link.description,
-      otherCompany,
-    })),
-  });
+  return NextResponse.json(
+    {
+      items: links.map(({ link, otherCompany }) => ({
+        id: link.id,
+        kind: link.kind,
+        title: link.title,
+        description: link.description,
+        otherCompany,
+      })),
+    },
+    { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" } },
+  );
 }

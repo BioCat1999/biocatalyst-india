@@ -6,5 +6,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const { id } = await ctx.params;
   const event = await getEvent(id);
   if (!event) return NextResponse.json({ error: "event not found" }, { status: 404 });
-  return NextResponse.json(event);
+  return NextResponse.json(event, {
+    headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" },
+  });
 }

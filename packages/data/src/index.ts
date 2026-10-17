@@ -946,36 +946,98 @@ export async function getCompaniesForDrug(drug: Drug): Promise<Company[]> {
 export { eventTypeLabel } from "@biocatalyst/types";
 
 /** Spec §22 event-card contract. */
-export async function toEventCard(event: CatalystEvent): Promise<EventCard> {
-  const [company, drug, trial] = await Promise.all([
-    event.companyIds.length ? getCompanyById(event.companyIds[0]) : undefined,
-    event.drugIds.length ? getDrugById(event.drugIds[0]) : undefined,
-    event.trialIds.length ? getTrialById(event.trialIds[0]) : undefined,
+export async function toEventCards(events: CatalystEvent[]): Promise<EventCard[]> {
+  if (events.length === 0) return [];
+
+  const companyIds = [...new Set(events.flatMap((event) => event.companyIds.slice(0, 1)))];
+  const drugIds = [...new Set(events.flatMap((event) => event.drugIds.slice(0, 1)))];
+  const trialIds = [...new Set(events.flatMap((event) => event.trialIds.slice(0, 1)))];
+  const pool = getPool();
+
+  // Event pages only need compact labels. Fetch every referenced entity in
+  // three batches instead of hydrating up to three full graphs per event.
+  const [companyRes, drugRes, trialRes] = await Promise.all([
+    companyIds.length
+      ? pool.query<{
+          id: string;
+          slug: string;
+          canonical_name: string;
+          ticker: string | null;
+          exchange: string | null;
+        }>(
+          `SELECT c.id::text AS id, c.slug, c.canonical_name,
+                  security.ticker, security.exchange
+             FROM companies c
+             LEFT JOIN LATERAL (
+               SELECT s.ticker, s.exchange
+                 FROM securities s
+                WHERE s.company_id = c.id
+                ORDER BY s.exchange, s.ticker
+                LIMIT 1
+             ) security ON true
+            WHERE c.id = ANY($1::uuid[])`,
+          [companyIds],
+        )
+      : Promise.resolve({ rows: [] }),
+    drugIds.length
+      ? pool.query<{ id: string; canonical_name: string }>(
+          `SELECT id::text AS id, canonical_name
+             FROM drugs WHERE id = ANY($1::uuid[])`,
+          [drugIds],
+        )
+      : Promise.resolve({ rows: [] }),
+    trialIds.length
+      ? pool.query<{ id: string; registry_trial_id: string; phase: string | null }>(
+          `SELECT id::text AS id, registry_trial_id, phase
+             FROM trials WHERE id = ANY($1::uuid[])`,
+          [trialIds],
+        )
+      : Promise.resolve({ rows: [] }),
   ]);
-  return {
-    id: event.id,
-    headline: event.headline,
-    occurredAt: event.occurredAt,
-    eventType: event.eventType,
-    company: company
-      ? {
-          id: company.id,
-          slug: company.slug,
-          name: company.canonicalName,
-          ticker: company.securities[0]?.ticker ?? "",
-          exchange: company.securities[0]?.exchange ?? "",
-        }
-      : undefined,
-    drug: drug ? { name: drug.canonicalName } : undefined,
-    trial: trial ? { id: trial.registryTrialId, phase: trial.phase } : undefined,
-    indication: event.indication,
-    fact: event.fact,
-    summary: event.summary,
-    catalystSummary: event.catalystSummary,
-    marketReaction: event.marketReaction,
-    sources: event.sources.map((s) => ({ title: s.title, url: s.url, isPrimary: s.isPrimary })),
-    confidence: event.confidence,
-  };
+
+  const companies = new Map(companyRes.rows.map((row) => [row.id, row]));
+  const drugs = new Map(drugRes.rows.map((row) => [row.id, row]));
+  const trials = new Map(trialRes.rows.map((row) => [row.id, row]));
+
+  return events.map((event) => {
+    const company = event.companyIds[0] ? companies.get(event.companyIds[0]) : undefined;
+    const drug = event.drugIds[0] ? drugs.get(event.drugIds[0]) : undefined;
+    const trial = event.trialIds[0] ? trials.get(event.trialIds[0]) : undefined;
+    return {
+      id: event.id,
+      headline: event.headline,
+      occurredAt: event.occurredAt,
+      eventType: event.eventType,
+      company: company
+        ? {
+            id: company.id,
+            slug: company.slug,
+            name: company.canonical_name,
+            ticker: company.ticker ?? "",
+            exchange: company.exchange ?? "",
+          }
+        : undefined,
+      drug: drug ? { name: drug.canonical_name } : undefined,
+      trial: trial
+        ? { id: trial.registry_trial_id, phase: (trial.phase ?? "Preclinical") as TrialPhase }
+        : undefined,
+      indication: event.indication,
+      fact: event.fact,
+      summary: event.summary,
+      catalystSummary: event.catalystSummary,
+      marketReaction: event.marketReaction,
+      sources: event.sources.map((source) => ({
+        title: source.title,
+        url: source.url,
+        isPrimary: source.isPrimary,
+      })),
+      confidence: event.confidence,
+    };
+  });
+}
+
+export async function toEventCard(event: CatalystEvent): Promise<EventCard> {
+  return (await toEventCards([event]))[0];
 }
 
 export interface SearchResults {
@@ -1001,67 +1063,68 @@ export async function search(query: string): Promise<SearchResults> {
   const pool = getPool();
   const pat = likePattern(q);
 
-  const companyRes = await pool.query<CompanyRow>(
-    `SELECT DISTINCT c.id::text AS id, c.canonical_name, c.slug, c.description,
-            c.country, c.website,
-            GREATEST(similarity(c.canonical_name, $1),
-                     COALESCE(MAX(similarity(a.alias, $1)) OVER (PARTITION BY c.id), 0)) AS rank
-       FROM companies c
-       LEFT JOIN company_aliases a ON a.company_id = c.id
-      WHERE c.canonical_name ILIKE $2
-         OR a.alias ILIKE $2
-         OR EXISTS (SELECT 1 FROM securities s
-                     WHERE s.company_id = c.id AND s.ticker ILIKE $2)
-         OR similarity(c.canonical_name, $1) > 0.25
-         OR similarity(a.alias, $1) > 0.35
-      ORDER BY rank DESC, c.canonical_name
-      LIMIT 10`,
-    [q, pat],
-  );
-
-  const drugRes = await pool.query<DrugRow>(
-    `SELECT DISTINCT d.id::text AS id, d.canonical_name, d.slug, d.modality, d.mechanism,
-            GREATEST(similarity(d.canonical_name, $1),
-                     COALESCE(MAX(similarity(a.alias, $1)) OVER (PARTITION BY d.id), 0)) AS rank
-       FROM drugs d
-       LEFT JOIN drug_aliases a ON a.drug_id = d.id
-      WHERE d.canonical_name ILIKE $2
-         OR a.alias ILIKE $2
-         OR similarity(d.canonical_name, $1) > 0.25
-         OR similarity(a.alias, $1) > 0.35
-      ORDER BY rank DESC, d.canonical_name
-      LIMIT 10`,
-    [q, pat],
-  );
-
-  const trialRes = await pool.query<TrialRow>(
-    `SELECT id::text AS id, registry, registry_trial_id, title, phase, status,
-            enrollment, sponsor_company_id::text AS sponsor_company_id,
-            start_date::text AS start_date,
-            primary_completion_date::text AS primary_completion_date,
-            source_url, primary_endpoints,
-            GREATEST(similarity(title, $1), similarity(registry_trial_id, $1)) AS rank
-       FROM trials
-      WHERE registry_trial_id ILIKE $2
-         OR title ILIKE $2
-         OR similarity(title, $1) > 0.2
-      ORDER BY rank DESC, registry_trial_id
-      LIMIT 10`,
-    [q, pat],
-  );
-
-  const eventRes = await pool.query<EventRow>(
-    `SELECT id::text AS id, event_type, occurred_at, published_at, headline,
-            factual_summary, catalyst_summary, confidence, review_status,
-            indication, phase, outcome
-       FROM events
-      WHERE headline ILIKE $1
-         OR factual_summary ILIKE $1
-         OR COALESCE(indication, '') ILIKE $1
-      ORDER BY occurred_at DESC, id DESC
-      LIMIT 10`,
-    [pat],
-  );
+  // These searches are independent. Running them concurrently avoids four
+  // serial database round trips before hydration can even begin.
+  const [companyRes, drugRes, trialRes, eventRes] = await Promise.all([
+    pool.query<CompanyRow>(
+      `SELECT DISTINCT c.id::text AS id, c.canonical_name, c.slug, c.description,
+              c.country, c.website,
+              GREATEST(similarity(c.canonical_name, $1),
+                       COALESCE(MAX(similarity(a.alias, $1)) OVER (PARTITION BY c.id), 0)) AS rank
+         FROM companies c
+         LEFT JOIN company_aliases a ON a.company_id = c.id
+        WHERE c.canonical_name ILIKE $2
+           OR a.alias ILIKE $2
+           OR EXISTS (SELECT 1 FROM securities s
+                       WHERE s.company_id = c.id AND s.ticker ILIKE $2)
+           OR similarity(c.canonical_name, $1) > 0.25
+           OR similarity(a.alias, $1) > 0.35
+        ORDER BY rank DESC, c.canonical_name
+        LIMIT 10`,
+      [q, pat],
+    ),
+    pool.query<DrugRow>(
+      `SELECT DISTINCT d.id::text AS id, d.canonical_name, d.slug, d.modality, d.mechanism,
+              GREATEST(similarity(d.canonical_name, $1),
+                       COALESCE(MAX(similarity(a.alias, $1)) OVER (PARTITION BY d.id), 0)) AS rank
+         FROM drugs d
+         LEFT JOIN drug_aliases a ON a.drug_id = d.id
+        WHERE d.canonical_name ILIKE $2
+           OR a.alias ILIKE $2
+           OR similarity(d.canonical_name, $1) > 0.25
+           OR similarity(a.alias, $1) > 0.35
+        ORDER BY rank DESC, d.canonical_name
+        LIMIT 10`,
+      [q, pat],
+    ),
+    pool.query<TrialRow>(
+      `SELECT id::text AS id, registry, registry_trial_id, title, phase, status,
+              enrollment, sponsor_company_id::text AS sponsor_company_id,
+              start_date::text AS start_date,
+              primary_completion_date::text AS primary_completion_date,
+              source_url, primary_endpoints,
+              GREATEST(similarity(title, $1), similarity(registry_trial_id, $1)) AS rank
+         FROM trials
+        WHERE registry_trial_id ILIKE $2
+           OR title ILIKE $2
+           OR similarity(title, $1) > 0.2
+        ORDER BY rank DESC, registry_trial_id
+        LIMIT 10`,
+      [q, pat],
+    ),
+    pool.query<EventRow>(
+      `SELECT id::text AS id, event_type, occurred_at, published_at, headline,
+              factual_summary, catalyst_summary, confidence, review_status,
+              indication, phase, outcome
+         FROM events
+        WHERE headline ILIKE $1
+           OR factual_summary ILIKE $1
+           OR COALESCE(indication, '') ILIKE $1
+        ORDER BY occurred_at DESC, id DESC
+        LIMIT 10`,
+      [pat],
+    ),
+  ]);
 
   const [companies, drugs, trials, events] = await Promise.all([
     hydrateCompanies(companyRes.rows),

@@ -12,22 +12,25 @@ export async function GET(req: NextRequest) {
     getUpcomingPatentExpiries(undefined, { withinDays, limit: 300 }),
     getPatentStats(),
   ]);
-  return NextResponse.json({
-    stats,
-    items: items.map((p) => ({
-      patentNumber: p.patentNumber,
-      applNo: p.applNo,
-      productNo: p.productNo,
-      tradeName: p.tradeName,
-      applicant: p.applicant,
-      activeIngredient: p.activeIngredient,
-      expiryDate: p.expiryDate,
-      daysToExpiry: p.daysToExpiry,
-      drugSubstanceFlag: p.drugSubstanceFlag,
-      drugProductFlag: p.drugProductFlag,
-      company: p.companySlug
-        ? { slug: p.companySlug, canonicalName: p.companyName }
-        : null,
-    })),
-  });
+  return NextResponse.json(
+    {
+      stats,
+      items: items.map((p) => ({
+        patentNumber: p.patentNumber,
+        applNo: p.applNo,
+        productNo: p.productNo,
+        tradeName: p.tradeName,
+        applicant: p.applicant,
+        activeIngredient: p.activeIngredient,
+        expiryDate: p.expiryDate,
+        daysToExpiry: p.daysToExpiry,
+        drugSubstanceFlag: p.drugSubstanceFlag,
+        drugProductFlag: p.drugProductFlag,
+        company: p.companySlug
+          ? { slug: p.companySlug, canonicalName: p.companyName }
+          : null,
+      })),
+    },
+    { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" } },
+  );
 }

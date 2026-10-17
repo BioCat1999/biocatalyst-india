@@ -65,5 +65,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ slug: stri
     // Failure discipline: missing market data yields nulls, never a 500.
   }
 
-  return NextResponse.json(base);
+  return NextResponse.json(base, {
+    headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
+  });
 }

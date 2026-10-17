@@ -23,6 +23,7 @@ type Props = CompositeScreenProps<
 
 export function WatchlistScreen({ navigation }: Props) {
   const { user, initializing } = useAuth();
+  const hasLoaded = React.useRef(false);
   const [items, setItems] = React.useState<
     Array<{ entityType: "company" | "drug"; entityId: string; createdAt: string; name?: string | null; href?: string | null }>
   >([]);
@@ -34,7 +35,7 @@ export function WatchlistScreen({ navigation }: Props) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!hasLoaded.current) setLoading(true);
     try {
       const res = await getApiClient().listWatchlist();
       setItems(res.items);
@@ -42,6 +43,7 @@ export function WatchlistScreen({ navigation }: Props) {
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError(0, String(err), "network"));
     } finally {
+      hasLoaded.current = true;
       setLoading(false);
     }
   }, [user]);
@@ -86,7 +88,7 @@ export function WatchlistScreen({ navigation }: Props) {
     );
   }
 
-  if (error) {
+  if (error && items.length === 0) {
     return (
       <Screen>
         <ErrorView message={error.message} onRetry={load} />

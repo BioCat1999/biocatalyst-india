@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listEvents, toEventCard } from "@biocatalyst/data";
+import { listEvents, toEventCards } from "@biocatalyst/data";
 import { parseQuery, eventsQuerySchema } from "@/lib/validate";
 
 /** GET /v1/events?cursor=&event_type=&company=&phase=&indication=&from=&to=&limit= */
@@ -21,8 +21,15 @@ export async function GET(req: NextRequest) {
     q.cursor,
     q.limit,
   );
-  return NextResponse.json({
-    items: await Promise.all(result.items.map(toEventCard)),
-    nextCursor: result.nextCursor,
-  });
+  return NextResponse.json(
+    {
+      items: await toEventCards(result.items),
+      nextCursor: result.nextCursor,
+    },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=600",
+      },
+    },
+  );
 }

@@ -14,5 +14,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ registry: 
   }
   const trial = await getTrial(registry, decoded);
   if (!trial) return NextResponse.json({ error: "trial not found" }, { status: 404 });
-  return NextResponse.json(trial);
+  return NextResponse.json(trial, {
+    headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" },
+  });
 }

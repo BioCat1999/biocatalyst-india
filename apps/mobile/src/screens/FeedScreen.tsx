@@ -10,6 +10,7 @@ import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { ApiError, type EventCard as EventCardT, type EventType } from "@biocatalyst/api-client";
 import { getApiClient } from "../api";
+import { getCachedFeed, loadFirstFeedPage } from "../contentCache";
 import type { MainTabParamList, RootStackParamList } from "../navigation/types";
 import { EventCard } from "../components/EventCard";
 import { Chip, EmptyView, ErrorView, LoadingView, Screen } from "../components/Ui";
@@ -29,23 +30,27 @@ const FILTERS: Array<{ label: string; value: EventType | undefined }> = [
 ];
 
 export function FeedScreen({ navigation }: Props) {
-  const [items, setItems] = useState<EventCardT[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(true);
+  const cached = getCachedFeed();
+  const [items, setItems] = useState<EventCardT[]>(() => cached?.items ?? []);
+  const [cursor, setCursor] = useState<string | null>(() => cached?.nextCursor ?? null);
+  const [hasMore, setHasMore] = useState(() => cached?.nextCursor !== null);
+  const [loading, setLoading] = useState(cached === null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [filter, setFilter] = useState<EventType | undefined>(undefined);
 
   const loadPage = useCallback(
-    async (nextCursor: string | null, append: boolean) => {
+    async (nextCursor: string | null, append: boolean, force = false) => {
       try {
-        const page = await getApiClient().listEvents({
-          cursor: nextCursor ?? undefined,
-          eventType: filter,
-          limit: 20,
-        });
+        const page =
+          !append && nextCursor === null && filter === undefined
+            ? await loadFirstFeedPage(force)
+            : await getApiClient().listEvents({
+                cursor: nextCursor ?? undefined,
+                eventType: filter,
+                limit: 20,
+              });
         setItems((prev) => (append ? [...prev, ...page.items] : page.items));
         setCursor(page.nextCursor);
         setHasMore(page.nextCursor !== null);
@@ -58,10 +63,12 @@ export function FeedScreen({ navigation }: Props) {
   );
 
   const initial = useCallback(async () => {
-    setLoading(true);
+    // Keep an already-cached unfiltered page visible while it is reused.
+    // Filter changes still get an explicit loading state.
+    if (filter !== undefined || !getCachedFeed()) setLoading(true);
     await loadPage(null, false);
     setLoading(false);
-  }, [loadPage]);
+  }, [filter, loadPage]);
 
   useEffect(() => {
     initial();
@@ -69,7 +76,7 @@ export function FeedScreen({ navigation }: Props) {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadPage(null, false);
+    await loadPage(null, false, true);
     setRefreshing(false);
   }, [loadPage]);
 

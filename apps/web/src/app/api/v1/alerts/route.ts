@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@biocatalyst/db";
-import { getEvent } from "@biocatalyst/data";
 import { getUnreadCount, listAlerts } from "@biocatalyst/notifications";
 import { getSessionToken, requireUserForToken } from "@/lib/auth-server";
 
@@ -26,21 +25,28 @@ export async function GET(req: NextRequest) {
     listAlerts(pool, user.id, { limit: 50 }),
     getUnreadCount(pool, user.id),
   ]);
-  const items = await Promise.all(
-    alerts.map(async (a) => {
-      const event = await getEvent(a.eventId);
-      return {
-        id: a.id,
-        eventId: a.eventId,
-        channel: a.channel,
-        status: a.status,
-        readAt: a.readAt,
-        createdAt: a.createdAt,
-        headline: event?.headline ?? null,
-        eventType: event?.eventType ?? null,
-        href: `/events/${a.eventId}`,
-      };
-    }),
-  );
+  const eventIds = [...new Set(alerts.map((alert) => alert.eventId))];
+  const { rows: eventRows } = eventIds.length
+    ? await pool.query<{ id: string; headline: string; event_type: string }>(
+        `SELECT id::text AS id, headline, event_type
+           FROM events WHERE id = ANY($1::uuid[])`,
+        [eventIds],
+      )
+    : { rows: [] };
+  const events = new Map(eventRows.map((event) => [event.id, event]));
+  const items = alerts.map((alert) => {
+    const event = events.get(alert.eventId);
+    return {
+      id: alert.id,
+      eventId: alert.eventId,
+      channel: alert.channel,
+      status: alert.status,
+      readAt: alert.readAt,
+      createdAt: alert.createdAt,
+      headline: event?.headline ?? null,
+      eventType: event?.event_type ?? null,
+      href: `/events/${alert.eventId}`,
+    };
+  });
   return NextResponse.json({ items, unreadCount });
 }

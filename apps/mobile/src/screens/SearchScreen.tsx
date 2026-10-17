@@ -34,6 +34,7 @@ type Props = CompositeScreenProps<
 >;
 
 const GROUPS: SearchScope[] = ["events", "companies", "drugs", "trials"];
+const resultCache = new Map<string, SearchResults>();
 
 export function SearchScreen({ navigation, route }: Props) {
   const scope = route.params?.scope;
@@ -42,27 +43,36 @@ export function SearchScreen({ navigation, route }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestSequence = useRef(0);
 
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
     const q = query.trim();
+    const sequence = ++requestSequence.current;
     if (q.length < 2) {
       setResults(null);
       setLoading(false);
       setError(null);
       return;
     }
-    setLoading(true);
+    const cacheKey = q.toLocaleLowerCase();
+    const cached = resultCache.get(cacheKey);
+    setResults(cached ?? null);
+    setLoading(!cached);
+    setError(null);
     timer.current = setTimeout(async () => {
       try {
         const r = await getApiClient().search(q);
+        resultCache.set(cacheKey, r);
+        if (sequence !== requestSequence.current) return;
         setResults(r);
         setError(null);
       } catch (err) {
+        if (sequence !== requestSequence.current) return;
         setError(err instanceof ApiError ? err.message : String(err));
-        setResults(null);
+        if (!cached) setResults(null);
       } finally {
-        setLoading(false);
+        if (sequence === requestSequence.current) setLoading(false);
       }
     }, 350);
     return () => {

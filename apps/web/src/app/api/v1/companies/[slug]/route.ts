@@ -14,15 +14,18 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ slug: stri
     getDrugsForCompany(company.id),
     getTrialsForCompany(company.id),
   ]);
-  return NextResponse.json({
-    ...company,
-    drugs: drugs.map((d) => ({ id: d.id, slug: d.slug, canonicalName: d.canonicalName })),
-    trials: trials.map((t) => ({
-      id: t.id,
-      registry: t.registry,
-      registryTrialId: t.registryTrialId,
-      phase: t.phase,
-      status: t.status,
-    })),
-  });
+  return NextResponse.json(
+    {
+      ...company,
+      drugs: drugs.map((d) => ({ id: d.id, slug: d.slug, canonicalName: d.canonicalName })),
+      trials: trials.map((t) => ({
+        id: t.id,
+        registry: t.registry,
+        registryTrialId: t.registryTrialId,
+        phase: t.phase,
+        status: t.status,
+      })),
+    },
+    { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" } },
+  );
 }

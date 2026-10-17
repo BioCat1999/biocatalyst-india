@@ -14,19 +14,22 @@ export async function GET(req: NextRequest) {
       : scope === "india"
         ? (await listCompanies()).filter((c) => c.country === "India")
         : await listCompanies();
-  return NextResponse.json({
-    items: companies.map((c) => ({
-      id: c.id,
-      slug: c.slug,
-      canonicalName: c.canonicalName,
-      description: c.description,
-      country: c.country,
-      website: c.website,
-      securities: c.securities.map((s) => ({
-        exchange: s.exchange,
-        ticker: s.ticker,
-        currency: s.currency,
+  return NextResponse.json(
+    {
+      items: companies.map((c) => ({
+        id: c.id,
+        slug: c.slug,
+        canonicalName: c.canonicalName,
+        description: c.description,
+        country: c.country,
+        website: c.website,
+        securities: c.securities.map((s) => ({
+          exchange: s.exchange,
+          ticker: s.ticker,
+          currency: s.currency,
+        })),
       })),
-    })),
-  });
+    },
+    { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" } },
+  );
 }

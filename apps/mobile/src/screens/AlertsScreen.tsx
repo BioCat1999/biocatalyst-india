@@ -24,6 +24,7 @@ type Props = CompositeScreenProps<
 
 export function AlertsScreen({ navigation }: Props) {
   const { user, initializing } = useAuth();
+  const hasLoaded = React.useRef(false);
   const [data, setData] = useState<AlertListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiError | null>(null);
@@ -33,7 +34,7 @@ export function AlertsScreen({ navigation }: Props) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!hasLoaded.current) setLoading(true);
     try {
       const res = await getApiClient().listAlerts();
       setData(res);
@@ -41,6 +42,7 @@ export function AlertsScreen({ navigation }: Props) {
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError(0, String(err), "network"));
     } finally {
+      hasLoaded.current = true;
       setLoading(false);
     }
   }, [user]);
@@ -114,7 +116,7 @@ export function AlertsScreen({ navigation }: Props) {
     );
   }
 
-  if (error) {
+  if (error && !data) {
     return (
       <Screen>
         <ErrorView message={error.message} onRetry={load} />

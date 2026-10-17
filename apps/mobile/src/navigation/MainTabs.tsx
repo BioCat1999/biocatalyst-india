@@ -7,6 +7,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { colors } from "../theme";
 import type { MainTabParamList, RootStackParamList } from "./types";
 import { prefetchIpos } from "../ipoCache";
+import { prefetchPrimaryContent } from "../contentCache";
 import { FeedScreen } from "../screens/FeedScreen";
 import { SearchScreen } from "../screens/SearchScreen";
 import { GlobalScreen } from "../screens/GlobalScreen";
@@ -63,8 +64,9 @@ export function MainTabs() {
   const insets = useSafeAreaInsets();
 
   React.useEffect(() => {
-    // Warm the small IPO catalog after sign-in so opening the tracker does not
-    // wait for a serverless/database cold start.
+    // Share background requests with the screens themselves. This warms the
+    // secondary sections without downloading private account data eagerly.
+    prefetchPrimaryContent();
     prefetchIpos();
   }, []);
 
