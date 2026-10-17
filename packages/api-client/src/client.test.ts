@@ -164,6 +164,22 @@ describe("session cookie plumbing", () => {
     expect(await storage.getItem("biocatalyst.sessionToken")).toBe("new-user-token");
   });
 
+  it("Google sign-in sends the ID token and captures the first-party session", async () => {
+    const { fetchImpl, calls } = stubFetch(() =>
+      jsonResponse({ user: demoUser }, 200, {
+        "set-cookie": "bc_session=google-user-token; Path=/; HttpOnly",
+      }),
+    );
+    const { client, storage } = makeClient(fetchImpl);
+    await client.signInWithGoogle("signed.google.id.token");
+    expect(calls[0].url).toContain("/api/v1/auth/google");
+    expect(calls[0].init.method).toBe("POST");
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({
+      idToken: "signed.google.id.token",
+    });
+    expect(await storage.getItem("biocatalyst.sessionToken")).toBe("google-user-token");
+  });
+
   it("sign-out posts to the API and clears the token even on failure", async () => {
     const { fetchImpl, calls } = stubFetch(() => {
       throw new Error("connection reset");

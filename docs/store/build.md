@@ -1,7 +1,7 @@
 # Android Play release build — Biocatalyst India
 
 The first Play release uses Expo SDK 54, React Native 0.81, Android package
-`india.biocatalyst.app`, version `1.0.1`, version code `2`, minimum SDK 24,
+`india.biocatalyst.app`, version `1.0.2`, version code `3`, minimum SDK 24,
 and target/compile SDK 36.
 
 ## Native generation
@@ -40,6 +40,7 @@ cd apps/mobile/android
 export JAVA_HOME=$(/usr/libexec/java_home -v 17)
 export ANDROID_HOME="$HOME/Library/Android/sdk"
 export EXPO_PUBLIC_API_URL=https://biocatalyst-india.vercel.app
+export EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=YOUR_WEB_CLIENT_ID.apps.googleusercontent.com
 export EXPO_TELEMETRY_DISABLED=1 NODE_ENV=production
 UPLOAD_PASSWORD="$(tr -d '\\n' < "$HOME/android-keys/biocatalyst-play-upload-2026.password")"
 ./gradlew bundleRelease --no-daemon \

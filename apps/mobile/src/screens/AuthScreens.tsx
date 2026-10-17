@@ -14,6 +14,13 @@ import {
   TextInput,
   View,
 } from "react-native";
+import {
+  GoogleSignin,
+  GoogleSigninButton,
+  isSuccessResponse,
+  statusCodes,
+  isErrorWithCode,
+} from "@react-native-google-signin/google-signin";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useAuth } from "../auth/AuthContext";
 import type { RootStackParamList } from "../navigation/types";
@@ -22,6 +29,15 @@ import { colors, fontSize, radius, spacing } from "../theme";
 
 type SignInProps = NativeStackScreenProps<RootStackParamList, "SignIn">;
 type SignUpProps = NativeStackScreenProps<RootStackParamList, "SignUp">;
+
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
+
+if (GOOGLE_WEB_CLIENT_ID) {
+  GoogleSignin.configure({
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+    offlineAccess: false,
+  });
+}
 
 function AuthForm({
   mode,
@@ -32,7 +48,7 @@ function AuthForm({
   onSubmit: (email: string, password: string) => Promise<void>;
   onSwitch: () => void;
 }) {
-  const { busy, error } = useAuth();
+  const { busy, error, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
@@ -47,6 +63,31 @@ function AuthForm({
       await onSubmit(email, password);
     } catch {
       // AuthContext already surfaced the server message.
+    }
+  };
+
+  const continueWithGoogle = async () => {
+    setLocalError(null);
+    if (!GOOGLE_WEB_CLIENT_ID) {
+      setLocalError("Google sign-in is not configured for this build.");
+      return;
+    }
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+      if (!isSuccessResponse(response)) return;
+      if (!response.data.idToken) {
+        setLocalError("Google did not return a secure identity token. Please try again.");
+        return;
+      }
+      await signInWithGoogle(response.data.idToken);
+    } catch (err) {
+      if (isErrorWithCode(err) && err.code === statusCodes.IN_PROGRESS) return;
+      if (isErrorWithCode(err) && err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        setLocalError("Google Play Services needs to be installed or updated.");
+        return;
+      }
+      setLocalError("Google sign-in could not be completed. Please try again.");
     }
   };
 
@@ -67,6 +108,18 @@ function AuthForm({
             ? "Sign in to access the catalyst feed, watchlists and alerts."
             : "Use any email address, including Gmail, to access the app."}
         </Text>
+        <GoogleSigninButton
+          size={GoogleSigninButton.Size.Wide}
+          color={GoogleSigninButton.Color.Light}
+          onPress={continueWithGoogle}
+          disabled={busy}
+          style={styles.googleButton}
+        />
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>OR USE EMAIL</Text>
+          <View style={styles.dividerLine} />
+        </View>
         <Text style={styles.label}>Email address</Text>
         <TextInput
           value={email}
@@ -190,6 +243,14 @@ const styles = StyleSheet.create({
   },
   errorBox: { backgroundColor: colors.redSoft, borderRadius: radius, padding: spacing.md, marginTop: spacing.md },
   error: { color: colors.red, fontSize: fontSize.sm, lineHeight: 19 },
+  googleButton: {
+    width: "100%",
+    height: 52,
+    marginTop: spacing.sm,
+  },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.lg },
+  dividerLine: { height: 1, backgroundColor: colors.line, flex: 1 },
+  dividerText: { color: colors.placeholder, fontSize: 10, fontWeight: "700", letterSpacing: 0.8 },
   button: {
     backgroundColor: colors.navy,
     borderRadius: radius + 2,

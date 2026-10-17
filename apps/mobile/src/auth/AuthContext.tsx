@@ -19,6 +19,7 @@ interface AuthContextValue {
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: (idToken: string) => Promise<void>;
   signOut: () => Promise<void>;
   /** Permanently delete the account, then return to the sign-in gate. */
   deleteAccount: () => Promise<void>;
@@ -81,6 +82,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const signInWithGoogle = useCallback(async (idToken: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const profile = await getApiClient().signInWithGoogle(idToken);
+      setUser(profile);
+    } catch (err) {
+      setError(toMessage(err));
+      throw err;
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     setBusy(true);
     try {
@@ -115,12 +130,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       error,
       signIn,
       signUp,
+      signInWithGoogle,
       signOut,
       deleteAccount,
       refresh,
       clearError,
     }),
-    [user, initializing, busy, error, signIn, signUp, signOut, deleteAccount, refresh, clearError],
+    [user, initializing, busy, error, signIn, signUp, signInWithGoogle, signOut, deleteAccount, refresh, clearError],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

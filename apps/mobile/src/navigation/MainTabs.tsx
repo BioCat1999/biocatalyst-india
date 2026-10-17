@@ -1,7 +1,8 @@
 import React from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { colors } from "../theme";
 import type { MainTabParamList, RootStackParamList } from "./types";
@@ -45,9 +46,10 @@ function IpoButton({ onPress }: { onPress: () => void }) {
       hitSlop={12}
       accessibilityRole="button"
       accessibilityLabel="IPO tracker"
-      style={styles.headerButton}
+      style={styles.ipoButton}
     >
-      <Ionicons name="trending-up-outline" size={22} color={colors.white} />
+      <Ionicons name="trending-up-outline" size={18} color={colors.white} />
+      <Text style={styles.ipoButtonText}>IPO</Text>
     </Pressable>
   );
 }
@@ -57,6 +59,8 @@ function IpoButton({ onPress }: { onPress: () => void }) {
  * RootNavigator only mounts this navigator for authenticated members.
  */
 export function MainTabs() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -68,8 +72,9 @@ export function MainTabs() {
         tabBarInactiveTintColor: colors.muted,
         tabBarLabelStyle: { fontSize: 10, fontWeight: "700", marginBottom: 6 },
         tabBarStyle: {
-          height: 68,
+          height: 62 + insets.bottom,
           paddingTop: 7,
+          paddingBottom: Math.max(insets.bottom, 6),
           borderTopColor: colors.line,
           backgroundColor: colors.card,
         },
@@ -151,4 +156,16 @@ export function MainTabs() {
 const styles = StyleSheet.create({
   headerRow: { flexDirection: "row", alignItems: "center" },
   headerButton: { marginRight: 14, padding: 5 },
+  ipoButton: {
+    marginRight: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+    borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  ipoButtonText: { color: colors.white, fontSize: 12, fontWeight: "800", letterSpacing: 0.4 },
 });

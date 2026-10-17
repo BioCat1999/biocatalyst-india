@@ -101,6 +101,42 @@ describe("signIn / verifyToken / signOut", () => {
     expect(verified?.user.email).toBe("login@example.com");
   });
 
+  it("creates and then reuses a Google-linked account", async () => {
+    const p = provider();
+    const first = await p.signInWithGoogle({
+      subject: "google-sub-123",
+      email: "Google.User@Example.com",
+      displayName: "Google User",
+    });
+    expect(first.session.user.email).toBe("google.user@example.com");
+    expect(first.session.user.displayName).toBe("Google User");
+
+    const second = await p.signInWithGoogle({
+      subject: "google-sub-123",
+      email: "google.user@example.com",
+      displayName: "Changed Name",
+    });
+    expect(second.session.user.id).toBe(first.session.user.id);
+    expect(await p.verifyToken(second.token)).not.toBeNull();
+
+    const { rows } = await pool.query(
+      "SELECT count(*)::int AS n FROM users WHERE google_sub = 'google-sub-123'",
+    );
+    expect(rows[0].n).toBe(1);
+  });
+
+  it("links Google to an existing password account with the same verified email", async () => {
+    const p = provider();
+    const local = await p.signUp("linked@example.com", "correct-horse-9");
+    const google = await p.signInWithGoogle({
+      subject: "google-linked-456",
+      email: "linked@example.com",
+      displayName: "Linked User",
+    });
+    expect(google.session.user.id).toBe(local.id);
+    await expect(p.signIn("linked@example.com", "correct-horse-9")).resolves.toBeDefined();
+  });
+
   it("rejects wrong passwords and unknown emails identically", async () => {
     const p = provider();
     await p.signUp("victim@example.com", "correct-horse-9");

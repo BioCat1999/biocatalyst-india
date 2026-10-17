@@ -248,6 +248,17 @@ export class ApiClient {
     return res.user;
   }
 
+  /** Verify a native Google ID token and start the same first-party session. */
+  async signInWithGoogle(idToken: string): Promise<AuthUserProfile> {
+    const res = await this.request<{ user: AuthUserProfile }>("/api/v1/auth/google", {
+      method: "POST",
+      body: { idToken },
+      anonymous: true,
+      schema: signInResponseSchema,
+    });
+    return res.user;
+  }
+
   /**
    * Permanently delete the signed-in account (the server cascades to
    * watchlist, alerts and push tokens) and drop the local token either way.

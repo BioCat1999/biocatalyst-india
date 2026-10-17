@@ -2,17 +2,15 @@
  * Auth provider interface + local self-hostable implementation — Milestone 6
  * (spec §14).
  *
- * The interface is deliberately provider-shaped: signUp / signIn / signOut /
- * verifyToken. The default implementation here is fully local — Node's
- * built-in `crypto.scrypt` for password hashing, `crypto.randomBytes` for
- * session tokens, sessions persisted in Postgres — with zero third-party
- * auth services, zero OAuth, zero external network contact. A future managed
- * provider (e.g. Supabase Auth) can implement this same interface without
- * touching the web app's route handlers; rationale in docs/decisions.md.
+ * The interface is deliberately provider-shaped: signUp / signIn / federated
+ * sign-in / signOut / verifyToken. Passwords and sessions remain fully local
+ * (scrypt, random tokens, Postgres); Google is an optional identity proof.
+ * Google ID tokens are verified server-side before a local session is issued.
  */
 import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import type { BinaryLike } from "node:crypto";
 import type { Pool } from "pg";
+import { OAuth2Client } from "google-auth-library";
 
 // scrypt's options-overload callback form, promisified by hand (util.promisify
 // only exposes the 3-argument overload in the Node typings).
@@ -53,6 +51,7 @@ export class AuthError extends Error {
       | "EMAIL_TAKEN"
       | "INVALID_CREDENTIALS"
       | "INVALID_EMAIL"
+      | "INVALID_IDENTITY"
       | "WEAK_PASSWORD"
       | "UNKNOWN_SESSION",
     message: string,
@@ -71,6 +70,7 @@ export interface AuthProvider {
   readonly providerName: string;
   signUp(email: string, password: string): Promise<AuthUser>;
   signIn(email: string, password: string): Promise<{ token: string; session: AuthSession }>;
+  signInWithGoogle(identity: GoogleIdentity): Promise<{ token: string; session: AuthSession }>;
   signOut(token: string): Promise<void>;
   /**
    * Permanently delete a user account. The users row delete cascades to
@@ -80,6 +80,12 @@ export interface AuthProvider {
   deleteAccount(userId: string): Promise<void>;
   /** Returns the session for a live token, or null for unknown/expired. */
   verifyToken(token: string): Promise<AuthSession | null>;
+}
+
+export interface GoogleIdentity {
+  subject: string;
+  email: string;
+  displayName: string | null;
 }
 
 export interface LocalAuthOptions {
@@ -109,6 +115,31 @@ export function validateEmail(email: string): void {
   const normalized = normalizeEmail(email);
   if (normalized.length > 254 || !EMAIL_RE.test(normalized)) {
     throw new AuthError("INVALID_EMAIL", "invalid email address");
+  }
+}
+
+/** Verify a Google ID token before its identity reaches account storage. */
+export async function verifyGoogleIdToken(
+  idToken: string,
+  audience: string,
+): Promise<GoogleIdentity> {
+  if (!idToken || !audience) {
+    throw new AuthError("INVALID_IDENTITY", "Google sign-in is not configured");
+  }
+  try {
+    const ticket = await new OAuth2Client().verifyIdToken({ idToken, audience });
+    const payload = ticket.getPayload();
+    if (!payload?.sub || !payload.email || payload.email_verified !== true) {
+      throw new AuthError("INVALID_IDENTITY", "Google account email is not verified");
+    }
+    return {
+      subject: payload.sub,
+      email: normalizeEmail(payload.email),
+      displayName: payload.name?.trim() || null,
+    };
+  } catch (err) {
+    if (err instanceof AuthError) throw err;
+    throw new AuthError("INVALID_IDENTITY", "invalid Google identity token");
   }
 }
 
@@ -209,7 +240,7 @@ export class LocalAuthProvider implements AuthProvider {
     password: string,
   ): Promise<{ token: string; session: AuthSession }> {
     const normalized = normalizeEmail(email);
-    const { rows } = await this.pool.query<UserRow & { password_hash: string }>(
+    const { rows } = await this.pool.query<UserRow & { password_hash: string | null }>(
       `SELECT id::text AS id, email, display_name, created_at::text AS created_at, password_hash
        FROM users WHERE email = $1`,
       [normalized],
@@ -219,6 +250,61 @@ export class LocalAuthProvider implements AuthProvider {
       // Identical error for unknown email vs wrong password (no enumeration).
       throw new AuthError("INVALID_CREDENTIALS", "invalid email or password");
     }
+    return this.createSession(row);
+  }
+
+  async signInWithGoogle(
+    identity: GoogleIdentity,
+  ): Promise<{ token: string; session: AuthSession }> {
+    const email = normalizeEmail(identity.email);
+    validateEmail(email);
+    if (!identity.subject.trim()) {
+      throw new AuthError("INVALID_IDENTITY", "invalid Google account identifier");
+    }
+
+    const bySubject = await this.pool.query<UserRow>(
+      `SELECT id::text AS id, email, display_name, created_at::text AS created_at
+       FROM users WHERE google_sub = $1`,
+      [identity.subject],
+    );
+    let user = bySubject.rows[0];
+
+    if (!user) {
+      const byEmail = await this.pool.query<UserRow & { google_sub: string | null }>(
+        `SELECT id::text AS id, email, display_name, created_at::text AS created_at, google_sub
+         FROM users WHERE email = $1`,
+        [email],
+      );
+      const existing = byEmail.rows[0];
+      if (existing) {
+        if (existing.google_sub && existing.google_sub !== identity.subject) {
+          throw new AuthError("INVALID_IDENTITY", "email is linked to another Google account");
+        }
+        const linked = await this.pool.query<UserRow>(
+          `UPDATE users
+           SET google_sub = $1,
+               display_name = COALESCE(display_name, $2),
+               email_verified_at = COALESCE(email_verified_at, now())
+           WHERE id = $3::uuid
+           RETURNING id::text AS id, email, display_name, created_at::text AS created_at`,
+          [identity.subject, identity.displayName, existing.id],
+        );
+        user = linked.rows[0];
+      } else {
+        const inserted = await this.pool.query<UserRow>(
+          `INSERT INTO users (email, password_hash, display_name, email_verified_at, google_sub)
+           VALUES ($1, NULL, $2, now(), $3)
+           RETURNING id::text AS id, email, display_name, created_at::text AS created_at`,
+          [email, identity.displayName, identity.subject],
+        );
+        user = inserted.rows[0];
+      }
+    }
+
+    return this.createSession(user);
+  }
+
+  private async createSession(userRow: UserRow): Promise<{ token: string; session: AuthSession }> {
     const token = randomBytes(32).toString("base64url");
     const now = new Date();
     const expiresAt = new Date(now.getTime() + this.sessionTtlMs);
@@ -226,9 +312,9 @@ export class LocalAuthProvider implements AuthProvider {
       `INSERT INTO sessions (user_id, token_hash, expires_at)
        VALUES ($1::uuid, $2, $3::timestamptz)
        RETURNING created_at::text AS created_at`,
-      [row.id, hashToken(token), expiresAt.toISOString()],
+      [userRow.id, hashToken(token), expiresAt.toISOString()],
     );
-    const user = toAuthUser(row);
+    const user = toAuthUser(userRow);
     return {
       token,
       session: {

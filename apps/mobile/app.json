@@ -11,7 +11,7 @@
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
       "package": "india.biocatalyst.app",
-      "versionCode": 2
+      "versionCode": 3
     },
     "assetBundlePatterns": [
       "**/*"
@@ -22,7 +22,7 @@
     "icon": "./assets/icon.png",
     "ios": {
       "bundleIdentifier": "india.biocatalyst.app",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "icon": "./assets/icon.png",
       "supportsTablet": true
     },
@@ -40,6 +40,6 @@
       "resizeMode": "contain"
     },
     "userInterfaceStyle": "light",
-    "version": "1.0.1"
+    "version": "1.0.2"
   }
 }

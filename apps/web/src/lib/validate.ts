@@ -58,12 +58,16 @@ export const resolveQuerySchema = z.object({
 export type EventsQuery = z.infer<typeof eventsQuerySchema>;
 
 /**
- * Auth inputs — Milestone 6 (spec §14). Email/password only; no OAuth, no
- * third-party providers (see docs/decisions.md).
+ * Authentication inputs. Passwords and Google ID tokens are accepted only
+ * by their dedicated endpoints and are never written to logs.
  */
 export const authCredentialsSchema = z.object({
   email: z.string().trim().min(3).max(254),
   password: z.string().min(1).max(200), // length policy enforced by the provider
+});
+
+export const googleIdTokenSchema = z.object({
+  idToken: z.string().min(100).max(10_000),
 });
 
 export const watchlistCreateSchema = z.object({
