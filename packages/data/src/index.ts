@@ -643,9 +643,13 @@ export async function listIpoPipeline(): Promise<IpoEntry[]> {
       ORDER BY c.canonical_name`,
     [ipoCatalog.map((r) => r.slug)],
   );
-  const companies = await hydrateCompanies(rows);
+  // The IPO list only exposes the compact company fields below. Avoid the
+  // securities and aliases hydration queries used by full company pages;
+  // each extra database round trip is noticeable on a serverless cold start.
+  const companies = rows.map((row) => mapCompany(row, [], []));
   const bySlug = new Map(companies.map((c) => [c.slug, c]));
   if (companies.length === 0) return [];
+  const companyIds = companies.map((company) => company.id);
 
   const { rows: evRows } = await getPool().query<{
     entity_id: string;
@@ -660,9 +664,11 @@ export async function listIpoPipeline(): Promise<IpoEntry[]> {
        FROM event_entities ee
        JOIN events e ON e.id = ee.event_id
       WHERE ee.entity_type = 'company'
+        AND ee.entity_id = ANY($1::uuid[])
         AND e.event_type IN ('ipo_filing', 'ipo_listing')
         AND e.review_status = 'published'
       ORDER BY ee.entity_id, e.occurred_at DESC`,
+    [companyIds],
   );
   const latest = new Map(evRows.map((r) => [r.entity_id, r]));
   const entries: IpoEntry[] = [];

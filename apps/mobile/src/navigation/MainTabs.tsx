@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { colors } from "../theme";
 import type { MainTabParamList, RootStackParamList } from "./types";
+import { prefetchIpos } from "../ipoCache";
 import { FeedScreen } from "../screens/FeedScreen";
 import { SearchScreen } from "../screens/SearchScreen";
 import { GlobalScreen } from "../screens/GlobalScreen";
@@ -60,6 +61,12 @@ function IpoButton({ onPress }: { onPress: () => void }) {
  */
 export function MainTabs() {
   const insets = useSafeAreaInsets();
+
+  React.useEffect(() => {
+    // Warm the small IPO catalog after sign-in so opening the tracker does not
+    // wait for a serverless/database cold start.
+    prefetchIpos();
+  }, []);
 
   return (
     <Tab.Navigator

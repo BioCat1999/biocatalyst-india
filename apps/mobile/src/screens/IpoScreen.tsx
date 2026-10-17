@@ -8,7 +8,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "rea
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { ApiError, type EventType, type IpoEntry, type IpoStatus } from "@biocatalyst/api-client";
 import { eventTypeLabel } from "@biocatalyst/api-client";
-import { getApiClient } from "../api";
+import { getCachedIpos, loadIpos } from "../ipoCache";
 import type { RootStackParamList } from "../navigation/types";
 import { Card, EmptyView, ErrorView, LoadingView, Screen } from "../components/Ui";
 import { colors, fontSize, spacing } from "../theme";
@@ -23,14 +23,15 @@ const STATUS_LABEL: Record<IpoStatus, string> = {
 };
 
 export function IpoScreen({ navigation }: Props) {
-  const [items, setItems] = useState<IpoEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = getCachedIpos();
+  const [items, setItems] = useState<IpoEntry[]>(() => cached?.items ?? []);
+  const [loading, setLoading] = useState(cached === null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
     try {
-      const res = await getApiClient().listIpos();
+      const res = await loadIpos(force);
       setItems(res.items);
       setError(null);
     } catch (err) {
@@ -65,7 +66,7 @@ export function IpoScreen({ navigation }: Props) {
       <FlatList
         data={items}
         keyExtractor={(e) => e.company.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} />}
         ListEmptyComponent={<EmptyView message="No IPO candidates tracked yet." />}
         renderItem={({ item }) => (
           <Pressable onPress={() => navigation.navigate("Company", { slug: item.company.slug })}>
