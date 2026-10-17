@@ -44,6 +44,8 @@ import {
   paginatedEventsSchema,
   patentExpiryResponseSchema,
   quoteSchema,
+  priceHistorySchema,
+  insightsSchema,
   searchResultsSchema,
   sessionResponseSchema,
   signInResponseSchema,
@@ -60,6 +62,8 @@ import {
   type IpoResponse,
   type PatentExpiryResponse,
   type Quote,
+  type PriceHistoryResponse,
+  type InsightsResponse,
   type SearchResults,
   type TrialDetail,
   type WatchlistResponse,
@@ -356,6 +360,18 @@ export class ApiClient {
     return this.request(this.url(`/api/v1/companies/${encodeURIComponent(slug)}/quote`), {
       schema: quoteSchema,
     });
+  }
+
+  /** Delayed daily price bars with catalyst markers for visual analysis. */
+  getPriceHistory(slug: string, days: 30 | 90 | 180 | 365 = 180): Promise<PriceHistoryResponse> {
+    return this.request(this.url(`/api/v1/companies/${encodeURIComponent(slug)}/history`, { days }), {
+      schema: priceHistorySchema,
+    });
+  }
+
+  /** Aggregated catalyst, trial, patent and regulatory intelligence dashboard. */
+  getInsights(): Promise<InsightsResponse> {
+    return this.request("/api/v1/insights", { schema: insightsSchema });
   }
 
   /** Company directory. scope=global → non-Indian majors; scope=india → Indian catalog; omit → all. */

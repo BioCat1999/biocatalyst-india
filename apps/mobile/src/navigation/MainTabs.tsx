@@ -56,6 +56,20 @@ function IpoButton({ onPress }: { onPress: () => void }) {
   );
 }
 
+function InsightsButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel="Intelligence dashboard"
+      style={styles.insightsButton}
+    >
+      <Ionicons name="analytics-outline" size={20} color={colors.white} />
+    </Pressable>
+  );
+}
+
 /**
  * Bottom tabs: Feed, Search, Global, Watchlist, Alerts, Account.
  * RootNavigator only mounts this navigator for authenticated members.
@@ -107,6 +121,13 @@ export function MainTabs() {
           title: "Catalyst Feed",
           headerRight: () => (
             <View style={styles.headerRow}>
+              <InsightsButton
+                onPress={() =>
+                  navigation
+                    .getParent<NativeStackNavigationProp<RootStackParamList>>()
+                    ?.navigate("Insights")
+                }
+              />
               <IpoButton
                 onPress={() =>
                   navigation
@@ -175,6 +196,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
+  },
+  insightsButton: {
+    marginRight: 6,
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.12)",
   },
   ipoButtonText: { color: colors.white, fontSize: 12, fontWeight: "800", letterSpacing: 0.4 },
 });

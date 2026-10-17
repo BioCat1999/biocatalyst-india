@@ -3,7 +3,7 @@
  *
  * Source: the FDA's openFDA API (`https://api.fda.gov`), a free public JSON
  * API that needs no key (1,000 requests/day per IP without one; a free key
- * via the `FDA_API_KEY` env var raises the cap). Two endpoints:
+ * via the `FDA_API_KEY` env var raises the cap). Three endpoints:
  *   - `/drug/drugsfda.json` — drug approvals (submission_status AP), mapped
  *     to `regulatory_approval`. The applicant/sponsor resolves through the
  *     company matcher, so Indian companies' US approvals (ANDA/NDA) and
@@ -12,6 +12,9 @@
  *     Class II/III → `manufacturing_or_inspection_update` (often a plant
  *     quality issue — the kind of news that moves Indian API/formulation
  *     stocks when the recalling firm is Indian).
+ *   - `/drug/shortages.json` — current unavailable/limited products, mapped
+ *     to `drug_shortage` when the reporting company resolves to a tracked
+ *     company. Availability and the FDA's stated reason are kept verbatim.
  *
  * openFDA is a primary source (`isPrimary: true`): approvals carry 0.9
  * confidence (auto-publish), recalls 0.85 (pending review — recalling-firm
@@ -88,8 +91,29 @@ export interface FdaRecallRecord {
   recall_initiation_date?: unknown;
 }
 
+/** Minimal drug-shortage record shape (fields we use). */
+export interface FdaShortageRecord {
+  package_ndc?: unknown;
+  generic_name?: unknown;
+  proprietary_name?: unknown;
+  company_name?: unknown;
+  availability?: unknown;
+  status?: unknown;
+  update_type?: unknown;
+  shortage_reason?: unknown;
+  update_date?: unknown;
+}
+
 function asText(v: unknown): string | null {
   return typeof v === "string" && v.trim() ? v.trim() : null;
+}
+
+/** MM/DD/YYYY → ISO date, or null when unparseable. */
+export function fdaSlashDateToIso(s: string | null | undefined): string | null {
+  if (!s) return null;
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s.trim());
+  if (!m) return null;
+  return `${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}T00:00:00.000Z`;
 }
 
 function latestApprovalSubmission(
@@ -136,9 +160,10 @@ export class OpenFdaAdapter implements SourceAdapter {
     this.fetchImpl = fetchImpl ?? globalThis.fetch;
   }
 
-  private async query(path: string, search: string): Promise<unknown[]> {
+  private async query(path: string, search: string, sort?: string): Promise<unknown[]> {
     const url =
       `${API_BASE}${path}?search=${encodeURIComponent(search)}` +
+      `${sort ? `&sort=${encodeURIComponent(sort)}` : ""}` +
       `&limit=${PAGE_LIMIT}${apiKeyParam()}`;
     let data: { results?: unknown[]; error?: unknown };
     try {
@@ -170,15 +195,21 @@ export class OpenFdaAdapter implements SourceAdapter {
       "/drug/enforcement.json",
       `recall_initiation_date:${range}`,
     );
+    const shortages = await this.query(
+      "/drug/shortages.json",
+      "status:Current AND -availability:Available",
+      "update_date:desc",
+    );
 
     const retrievedAt = now.toISOString();
     const docs: RawSourceDocument[] = [];
     const seen = new Set<string>();
     let newest = since;
 
-    const push = (kind: "approval" | "recall", record: unknown, dateIso: string | null, key: string) => {
+    const push = (kind: "approval" | "recall" | "shortage", record: unknown, dateIso: string | null, key: string) => {
       if (!dateIso || dateIso.slice(0, 10) < since) return;
-      const canonicalUrl = `${API_BASE}/drug/${kind === "approval" ? "drugsfda" : "enforcement"}.json?record=${encodeURIComponent(key)}`;
+      const dataset = kind === "approval" ? "drugsfda" : kind === "recall" ? "enforcement" : "shortages";
+      const canonicalUrl = `${API_BASE}/drug/${dataset}.json?record=${encodeURIComponent(key)}`;
       if (seen.has(canonicalUrl)) return;
       seen.add(canonicalUrl);
       docs.push({
@@ -202,6 +233,15 @@ export class OpenFdaAdapter implements SourceAdapter {
       const rec = r as FdaRecallRecord;
       push("recall", rec, fdaDateToIso(asText(rec.recall_initiation_date)), asText(rec.recall_number) ?? "unknown");
     }
+    for (const r of shortages) {
+      const rec = r as FdaShortageRecord;
+      const identity = [
+        asText(rec.package_ndc),
+        asText(rec.company_name),
+        asText(rec.generic_name),
+      ].filter(Boolean).join(":") || "unknown";
+      push("shortage", rec, fdaSlashDateToIso(asText(rec.update_date)), identity);
+    }
 
     docs.sort((a, b) => (a.publishedAt ?? "").localeCompare(b.publishedAt ?? ""));
     this.lastCursor = newest;
@@ -215,6 +255,7 @@ export class OpenFdaAdapter implements SourceAdapter {
   async normalize(doc: RawSourceDocument): Promise<NormalizedCandidate[]> {
     const { kind, record } = doc.raw as { kind: string; record: unknown };
     if (kind === "approval") return [normalizeApproval(doc, record as FdaApprovalRecord)].filter(Boolean) as NormalizedCandidate[];
+    if (kind === "shortage") return [normalizeShortage(doc, record as FdaShortageRecord)].filter(Boolean) as NormalizedCandidate[];
     return [normalizeRecall(doc, record as FdaRecallRecord)].filter(Boolean) as NormalizedCandidate[];
   }
 }
@@ -314,6 +355,43 @@ function normalizeRecall(
       eventType,
       occurredDate: occurredAt ? occurredAt.slice(0, 10) : "unknown",
       entityKey: `${company}:${asText(r.recall_number) ?? product}`,
+    }),
+  };
+}
+
+function normalizeShortage(
+  doc: RawSourceDocument,
+  r: FdaShortageRecord,
+): NormalizedCandidate | null {
+  const reporter = asText(r.company_name);
+  const company = matchCompanyName(reporter);
+  if (!company) return null;
+  const medicine = asText(r.generic_name) ?? asText(r.proprietary_name) ?? "a drug product";
+  const availability = asText(r.availability) ?? "limited availability";
+  const reason = asText(r.shortage_reason);
+  const updateType = asText(r.update_type);
+  const occurredAt = fdaSlashDateToIso(asText(r.update_date)) ?? doc.publishedAt;
+  const headline = `FDA shortage: ${medicine} — ${availability}`;
+  return {
+    ...baseCandidate(doc),
+    eventType: "drug_shortage",
+    occurredAt,
+    headline,
+    factualSummary:
+      `The US FDA lists ${medicine} from ${reporter} as ${availability.toLowerCase()}.` +
+      `${reason ? ` Stated reason: ${reason}.` : ""}` +
+      `${updateType ? ` Update type: ${updateType}.` : ""}`,
+    catalystSummary:
+      `A current US supply constraint involving ${company}. Shortages can affect ` +
+      `near-term product availability and may create opportunities for alternative suppliers.`,
+    confidence: TEMPLATE_CONFIDENCE,
+    companyNames: [company],
+    sourceTitle: headline,
+    fingerprint: eventFingerprint({
+      sourceName: doc.sourceName,
+      eventType: "drug_shortage",
+      occurredDate: occurredAt ? occurredAt.slice(0, 10) : "unknown",
+      entityKey: `${company}:${medicine}:${availability}`,
     }),
   };
 }

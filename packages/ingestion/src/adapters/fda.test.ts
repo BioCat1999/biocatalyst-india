@@ -10,6 +10,7 @@ import {
   OpenFdaAdapter,
   FDA_SOURCE_NAME,
   fdaDateToIso,
+  fdaSlashDateToIso,
 } from "./fda.js";
 
 function approvalFixture() {
@@ -73,10 +74,31 @@ function recallFixture() {
   };
 }
 
+function shortageFixture() {
+  return {
+    results: [
+      {
+        package_ndc: "00001-0001",
+        generic_name: "Cipla Test Injection",
+        company_name: "Cipla Ltd",
+        availability: "Limited Availability",
+        status: "Current",
+        update_type: "Updated",
+        shortage_reason: "Demand increase for the drug",
+        update_date: "09/30/2026",
+      },
+    ],
+  };
+}
+
 function stubFetch() {
   return vi.fn(async (url: unknown) => {
     const u = String(url);
-    const payload = u.includes("/drug/drugsfda.json") ? approvalFixture() : recallFixture();
+    const payload = u.includes("/drug/drugsfda.json")
+      ? approvalFixture()
+      : u.includes("/drug/shortages.json")
+        ? shortageFixture()
+        : recallFixture();
     return new Response(JSON.stringify(payload), {
       status: 200,
       headers: { "content-type": "application/json" },
@@ -87,6 +109,9 @@ function stubFetch() {
 describe("fdaDateToIso", () => {
   it("converts YYYYMMDD to ISO", () => {
     expect(fdaDateToIso("20260928")).toBe("2026-09-28T00:00:00.000Z");
+  });
+  it("converts MM/DD/YYYY shortage dates to ISO", () => {
+    expect(fdaSlashDateToIso("9/30/2026")).toBe("2026-09-30T00:00:00.000Z");
   });
   it("returns null for garbage", () => {
     expect(fdaDateToIso(null)).toBeNull();
@@ -105,15 +130,15 @@ describe("OpenFdaAdapter", () => {
     const adapter = new OpenFdaAdapter(fetchImpl);
 
     await expect(adapter.fetchSince("2026-10-01")).resolves.toEqual([]);
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 
-  it("fetches approvals and recalls, advancing the cursor", async () => {
+  it("fetches approvals, recalls and shortages, advancing the cursor", async () => {
     const adapter = new OpenFdaAdapter(stubFetch());
     const docs = await adapter.fetchSince("2026-09-01");
-    // 2 approvals + 2 recalls
-    expect(docs).toHaveLength(4);
-    expect(adapter.getNextCursor()).toBe("2026-09-29");
+    // 2 approvals + 2 recalls + 1 shortage
+    expect(docs).toHaveLength(5);
+    expect(adapter.getNextCursor()).toBe("2026-09-30");
     expect(adapter.sourceName).toBe(FDA_SOURCE_NAME);
   });
 
@@ -180,5 +205,16 @@ describe("OpenFdaAdapter", () => {
     const [c] = await adapter.normalize(recallDoc);
     expect(c.eventType).toBe("safety_signal");
     expect(c.companyNames).toEqual(["Cipla Ltd"]);
+  });
+
+  it("maps a tracked unavailable product to drug_shortage", async () => {
+    const adapter = new OpenFdaAdapter(stubFetch());
+    const docs = await adapter.fetchSince("2026-09-01");
+    const shortageDoc = docs.find((d) => String(d.canonicalUrl).includes("00001-0001"))!;
+    const [c] = await adapter.normalize(shortageDoc);
+    expect(c.eventType).toBe("drug_shortage");
+    expect(c.companyNames).toEqual(["Cipla Ltd"]);
+    expect(c.headline).toContain("Limited Availability");
+    expect(c.factualSummary).toContain("Demand increase");
   });
 });

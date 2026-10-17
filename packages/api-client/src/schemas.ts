@@ -253,6 +253,50 @@ export const quoteSchema = z.object({
 });
 export type Quote = z.infer<typeof quoteSchema>;
 
+export const priceHistorySchema = z.object({
+  ticker: z.string(),
+  exchange: z.string(),
+  currency: z.string(),
+  delayed: z.boolean(),
+  provider: z.string(),
+  bars: z.array(z.object({
+    date: z.string(),
+    close: z.number(),
+    open: z.number().optional(),
+    high: z.number().optional(),
+    low: z.number().optional(),
+    volume: z.number().optional(),
+  })),
+  events: z.array(z.object({
+    id: z.string(),
+    date: z.string(),
+    eventType: z.enum(EVENT_TYPES),
+    headline: z.string(),
+  })),
+});
+export type PriceHistoryResponse = z.infer<typeof priceHistorySchema>;
+
+export const insightsSchema = z.object({
+  generatedAt: z.string(),
+  activity: z.array(z.object({ eventType: z.enum(EVENT_TYPES), count: z.number() })),
+  pipeline: z.array(z.object({ phase: z.string(), count: z.number() })),
+  patentCliff: z.array(z.object({ year: z.number(), count: z.number() })),
+  regulatorySignals: z.object({
+    approvals: z.number(),
+    safety: z.number(),
+    manufacturing: z.number(),
+    shortages: z.number(),
+  }),
+  upcoming: z.array(z.object({
+    kind: z.enum(["trial", "patent"]),
+    date: z.string(),
+    title: z.string(),
+    detail: z.string(),
+    company: z.object({ slug: z.string(), canonicalName: z.string() }).nullable(),
+  })),
+});
+export type InsightsResponse = z.infer<typeof insightsSchema>;
+
 /* ---------- companies directory ---------- */
 
 export const companyListItemSchema = z.object({

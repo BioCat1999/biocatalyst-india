@@ -150,7 +150,7 @@ describe("PrNewswireAdapter.fetchSince", () => {
       stubFetch({ "pharmaceuticals-list.rss": xml, "clinical-trials-medical-discoveries-list.rss": xml }),
       FEEDS,
     );
-    const docs = await adapter.fetchSince("");
+    const docs = await adapter.fetchSince("2026-10-01T00:00:00.000Z");
     expect(docs).toHaveLength(1);
   });
 
@@ -162,7 +162,7 @@ describe("PrNewswireAdapter.fetchSince", () => {
       stubFetch({ "pharmaceuticals-list.rss": feedXml(LEQSELVI_ITEM) }),
       FEEDS,
     );
-    expect(await adapter.fetchSince("")).toHaveLength(1);
+    expect(await adapter.fetchSince("2026-10-01T00:00:00.000Z")).toHaveLength(1);
   });
 });
 
@@ -172,7 +172,7 @@ describe("PrNewswireAdapter.normalize", () => {
       stubFetch({ "pharmaceuticals-list.rss": feedXml(LEQSELVI_ITEM) }),
       [FEEDS[0]],
     );
-    const [doc] = await adapter.fetchSince("");
+    const [doc] = await adapter.fetchSince("2026-10-01T00:00:00.000Z");
     const [c] = await adapter.normalize(doc);
     expect(c.companyNames).toEqual(["Sun Pharmaceutical Industries Ltd"]);
     expect(c.eventType).toBe("clinical_trial_result");
@@ -191,7 +191,7 @@ describe("PrNewswireAdapter.normalize", () => {
       ),
     );
     const adapter = new PrNewswireAdapter(stubFetch({ "pharmaceuticals-list.rss": xml }), [FEEDS[0]]);
-    const [doc] = await adapter.fetchSince("");
+    const [doc] = await adapter.fetchSince("2026-10-01T00:00:00.000Z");
     const [c] = await adapter.normalize(doc);
     expect(c.eventType).toBe("regulatory_approval");
     expect(c.confidence).toBe(0.9);
@@ -209,7 +209,7 @@ describe("PrNewswireAdapter.normalize", () => {
       ),
     );
     const adapter = new PrNewswireAdapter(stubFetch({ "pharmaceuticals-list.rss": xml }), [FEEDS[0]]);
-    const [doc] = await adapter.fetchSince("");
+    const [doc] = await adapter.fetchSince("2026-10-01T00:00:00.000Z");
     const [c] = await adapter.normalize(doc);
     expect(c.companyNames).toEqual(["Sun Pharmaceutical Industries Ltd"]);
     expect(c.eventType).toBe("regulatory_approval");
@@ -225,7 +225,7 @@ describe("PrNewswireAdapter.normalize", () => {
       ),
     );
     const adapter = new PrNewswireAdapter(stubFetch({ "pharmaceuticals-list.rss": xml }), [FEEDS[0]]);
-    const [doc] = await adapter.fetchSince("");
+    const [doc] = await adapter.fetchSince("2026-10-01T00:00:00.000Z");
     const [c] = await adapter.normalize(doc);
     expect(c.companyNames).toEqual(["Cipla Ltd"]);
     expect(c.eventType).toBeNull();

@@ -1,6 +1,6 @@
 # Privacy labels — Biocatalyst India
 
-These answers reflect version 1.0.2. The client communicates with the
+These answers reflect version 1.0.3. The client communicates with the
 operator's HTTPS API and includes no advertising, analytics, attribution, or
 crash-reporting SDK. Data is not sold and is not used for tracking.
 
@@ -21,7 +21,7 @@ crash-reporting SDK. Data is not sold and is not used for tracking.
 - Normal server security and rate-limiting logs can contain an IP address and
   are retained according to the published privacy policy.
 
-The app does not collect a push token in version 1.0.2. It does not collect
+The app does not collect a push token in version 1.0.3. It does not collect
 precise location, contacts, photos, videos, audio, health, financial-account,
 messages, advertising ID, or device sensor data.
 

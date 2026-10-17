@@ -27,6 +27,8 @@ import { GdeltAdapter } from "./adapters/gdelt.js";
 import { PressRssAdapter } from "./adapters/rss.js";
 import { PrNewswireAdapter } from "./adapters/prnewswire.js";
 import { OpenFdaAdapter } from "./adapters/fda.js";
+import { PubmedAdapter } from "./adapters/pubmed-live.js";
+import { SebiRssAdapter } from "./adapters/sebi.js";
 import { runIngestion, type IngestionMetrics } from "./run.js";
 
 export const ADAPTER_FACTORIES: Record<string, () => SourceAdapter> = {
@@ -38,6 +40,8 @@ export const ADAPTER_FACTORIES: Record<string, () => SourceAdapter> = {
   "press-rss": () => new PressRssAdapter(),
   prnewswire: () => new PrNewswireAdapter(),
   openfda: () => new OpenFdaAdapter(),
+  pubmed: () => new PubmedAdapter(),
+  "sebi-rss": () => new SebiRssAdapter(),
 };
 
 /** Registered source names, in run order. */

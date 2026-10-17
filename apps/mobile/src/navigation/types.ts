@@ -7,6 +7,7 @@ export type RootStackParamList = {
   Drug: { slug: string };
   Trial: { registry: string; trialId: string };
   Ipo: undefined;
+  Insights: undefined;
   SignIn: undefined;
   SignUp: undefined;
 };

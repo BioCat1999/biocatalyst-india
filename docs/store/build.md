@@ -1,7 +1,7 @@
 # Android Play release build — Biocatalyst India
 
-The first Play release uses Expo SDK 54, React Native 0.81, Android package
-`india.biocatalyst.app`, version `1.0.2`, version code `3`, minimum SDK 24,
+The current Play release uses Expo SDK 54, React Native 0.81, Android package
+`india.biocatalyst.app`, version `1.0.3`, version code `4`, minimum SDK 24,
 and target/compile SDK 36.
 
 ## Native generation

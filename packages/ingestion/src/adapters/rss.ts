@@ -103,7 +103,18 @@ function itemLink(itemXml: string): string | null {
 
 function parsePubDate(raw: string | null): string | null {
   if (!raw) return null;
-  const d = new Date(cleanText(raw));
+  // A few official Indian feeds publish RFC-822-like dates with a comma
+  // between the month and year (for example `16 Oct, 2026 +0530`). Node's
+  // date parser rejects that otherwise-valid timestamp, so normalize that
+  // one punctuation variant before parsing.
+  const cleaned = cleanText(raw);
+  const sebiDateOnly = cleaned.match(
+    /^(\d{1,2}\s+[A-Z][a-z]{2}),\s+(\d{4})\s+([+-]\d{4})$/,
+  );
+  const normalized = sebiDateOnly
+    ? `${sebiDateOnly[1]} ${sebiDateOnly[2]} 00:00:00 ${sebiDateOnly[3]}`
+    : cleaned.replace(/^(\d{1,2}\s+[A-Z][a-z]{2}),\s+(\d{4})/, "$1 $2");
+  const d = new Date(normalized);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 

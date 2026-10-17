@@ -2,13 +2,14 @@
  * Company page (spec §4.3): name, NSE/BSE tickers, description,
  * follow/unfollow, associated drugs and trials, recent catalyst timeline.
  */
-import React from "react";
+import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { Quote } from "@biocatalyst/api-client";
 import { getApiClient } from "../api";
 import type { RootStackParamList } from "../navigation/types";
 import { EventCard } from "../components/EventCard";
+import { MarketHistoryChart } from "../components/MarketHistoryChart";
 import { FollowButton } from "../components/FollowButton";
 import { Card, EmptyView, ErrorView, LoadingView, Screen, SectionTitle } from "../components/Ui";
 import { useApiCall } from "../hooks/useApiCall";
@@ -56,11 +57,16 @@ function PriceCard({ quote }: { quote: Quote }) {
 
 export function CompanyScreen({ route, navigation }: Props) {
   const { slug } = route.params;
+  const [historyDays, setHistoryDays] = useState<30 | 90 | 180 | 365>(180);
   const company = useApiCall(() => getApiClient().getCompany(slug), slug);
   const events = useApiCall(() => getApiClient().getCompanyEvents(slug), slug);
   const quote = useApiCall(() => getApiClient().getQuote(slug), slug);
   const links = useApiCall(() => getApiClient().getGlobalLinks(slug), slug);
   const patents = useApiCall(() => getApiClient().getCompanyPatents(slug), slug);
+  const history = useApiCall(
+    () => getApiClient().getPriceHistory(slug, historyDays),
+    `${slug}:${historyDays}`,
+  );
 
   if (company.loading)
     return (
@@ -95,6 +101,23 @@ export function CompanyScreen({ route, navigation }: Props) {
           <FollowButton entityType="company" entityId={c.id} />
         </View>
         {quote.data && <PriceCard quote={quote.data} />}
+        <SectionTitle>Market intelligence</SectionTitle>
+        {history.data && history.data.bars.length > 1 ? (
+          <Card>
+            <MarketHistoryChart
+              data={history.data}
+              range={historyDays}
+              onRangeChange={setHistoryDays}
+              onEventPress={(eventId) => navigation.navigate("EventDetail", { eventId })}
+            />
+          </Card>
+        ) : history.loading ? (
+          <LoadingView label="Building price and catalyst chart…" />
+        ) : history.error ? (
+          <Card>
+            <Text style={styles.mutedNote}>Historical chart is temporarily unavailable.</Text>
+          </Card>
+        ) : null}
         {c.description ? (
           <Card>
             <Text style={styles.body}>{c.description}</Text>

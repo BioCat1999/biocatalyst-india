@@ -36,6 +36,8 @@ export type {
   TrialDetail,
   SearchResults,
   Quote,
+  PriceHistoryResponse,
+  InsightsResponse,
   CompanyListItem,
   CompanyListResponse,
   GlobalLinkItem,
