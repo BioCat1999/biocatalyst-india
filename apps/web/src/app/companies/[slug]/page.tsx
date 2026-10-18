@@ -1,12 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import {
-  getCompany,
-  getDrugsForCompany,
-  getTrialsForCompany,
-  getEventsForCompany,
+  getCompanyPageData,
   getGlobalLinksForCompany,
-  getPatentsForCompany,
+  listGlobalCompanies,
 } from "@biocatalyst/data";
 import { FollowButton } from "@/components/FollowButton";
 import { EventTypeTag } from "@/components/EventTypeTag";
@@ -15,6 +13,25 @@ import { trialUrl } from "@/lib/urls";
 import { CompanyMarketChart } from "@/components/CompanyMarketChart";
 
 export const dynamic = "force-static";
+export const revalidate = 300;
+
+const getCachedCompanyPageData = unstable_cache(
+  getCompanyPageData,
+  ["company-detail-v2"],
+  { revalidate: 300 },
+);
+
+// Global companies are the highest-latency detail clicks because their pages
+// are commonly a user's first request to a fresh deployment. Generate those
+// pages during deployment; if a local build has no database, Next can still
+// generate them on demand.
+export async function generateStaticParams() {
+  try {
+    return (await listGlobalCompanies()).map(({ slug }) => ({ slug }));
+  } catch {
+    return [];
+  }
+}
 
 const GLOBAL_LINK_KIND_LABEL: Record<string, string> = {
   licensing: "Licensing",
@@ -26,15 +43,9 @@ const GLOBAL_LINK_KIND_LABEL: Record<string, string> = {
 
 export default async function CompanyPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const company = await getCompany(slug);
-  if (!company) notFound();
-
-  const [drugs, trials, events, patents] = await Promise.all([
-    getDrugsForCompany(company.id),
-    getTrialsForCompany(company.id),
-    getEventsForCompany(company.id),
-    getPatentsForCompany(company.id),
-  ]);
+  const data = await getCachedCompanyPageData(slug);
+  if (!data) notFound();
+  const { company, drugs, trials, events, patents, patentCount } = data;
   const globalLinks = getGlobalLinksForCompany(slug);
 
   return (
@@ -124,13 +135,13 @@ export default async function CompanyPage({ params }: { params: Promise<{ slug: 
           )}
           {patents.length > 0 && (
             <section className="panel" aria-label="Patents">
-              <h2>Patents ({patents.length})</h2>
+              <h2>Patents ({patentCount})</h2>
               <p className="pub" style={{ marginBottom: 8 }}>
                 Orange Book listings where {company.canonicalName} is the
                 applicant. <Link href="/patents">Patent cliff tracker →</Link>
               </p>
               <ul className="source-list">
-                {patents.slice(0, 10).map((p) => (
+                {patents.map((p) => (
                   <li key={`${p.patentNumber}-${p.applNo}-${p.productNo}`} style={{ borderLeftColor: "var(--teal)" }}>
                     <strong>US {p.patentNumber}</strong>{" "}
                     <span className="tag neutral">{p.tradeName}</span>
@@ -142,8 +153,8 @@ export default async function CompanyPage({ params }: { params: Promise<{ slug: 
                   </li>
                 ))}
               </ul>
-              {patents.length > 10 && (
-                <p className="pub">+ {patents.length - 10} more</p>
+              {patentCount > patents.length && (
+                <p className="pub">+ {patentCount - patents.length} more</p>
               )}
             </section>
           )}

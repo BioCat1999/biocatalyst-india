@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCompany, listEvents } from "@biocatalyst/data";
+import { unstable_cache } from "next/cache";
+import { getCompanyMarketContext } from "@biocatalyst/data";
 import { YahooFinanceProvider } from "@biocatalyst/market-data";
 import { slugSchema } from "@/lib/validate";
 
@@ -11,6 +12,42 @@ function daysAgo(days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+const getCachedHistory = unstable_cache(
+  async (slug: string, days: number) => {
+    const from = daysAgo(days);
+    const to = daysAgo(0);
+    const context = await getCompanyMarketContext(
+      slug,
+      from,
+      `${to}T23:59:59.999Z`,
+    );
+    if (!context) return null;
+
+    const provider = new YahooFinanceProvider();
+    const bars = await provider.getPrices(
+      { ticker: context.ticker, exchange: context.exchange },
+      from,
+      to,
+    );
+    return {
+      ticker: context.ticker,
+      exchange: context.exchange,
+      currency: context.currency,
+      delayed: true,
+      provider: provider.providerName,
+      bars,
+      events: context.events.map((event) => ({
+        id: event.id,
+        date: event.occurredAt.slice(0, 10),
+        eventType: event.eventType,
+        headline: event.headline,
+      })),
+    };
+  },
+  ["company-market-history-v2"],
+  { revalidate: 900 },
+);
+
 /** GET /v1/companies/{slug}/history?days=180 — delayed daily bars plus catalyst markers. */
 export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: string }> }) {
   const { slug } = await ctx.params;
@@ -19,31 +56,14 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ slug: strin
   }
   const requested = Number(req.nextUrl.searchParams.get("days") ?? 180);
   const days = ALLOWED_DAYS.has(requested) ? requested : 180;
-  const company = await getCompany(slug);
-  if (!company) return NextResponse.json({ error: "company not found" }, { status: 404 });
-  const security = company.securities.find((item) => item.exchange === "NSE") ?? company.securities[0];
-  if (!security) return NextResponse.json({ error: "company has no listed security" }, { status: 404 });
-  const from = daysAgo(days);
-  const to = daysAgo(0);
-  const provider = new YahooFinanceProvider();
-  const [bars, eventPage] = await Promise.all([
-    provider.getPrices({ ticker: security.ticker, exchange: security.exchange }, from, to),
-    listEvents({ companyId: company.id, from, to: `${to}T23:59:59.999Z` }, undefined, 40),
-  ]);
-  return NextResponse.json({
-    ticker: security.ticker,
-    exchange: security.exchange,
-    currency: security.currency,
-    delayed: true,
-    provider: provider.providerName,
-    bars,
-    events: eventPage.items.map((event) => ({
-      id: event.id,
-      date: event.occurredAt.slice(0, 10),
-      eventType: event.eventType,
-      headline: event.headline,
-    })),
-  }, {
+  const history = await getCachedHistory(slug, days);
+  if (!history) {
+    return NextResponse.json(
+      { error: "company or listed security not found" },
+      { status: 404 },
+    );
+  }
+  return NextResponse.json(history, {
     headers: { "Cache-Control": "public, s-maxage=900, stale-while-revalidate=3600" },
   });
 }

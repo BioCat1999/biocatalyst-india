@@ -15,6 +15,8 @@ import {
   EVENT_TYPES,
   getCompany,
   getCompanyById,
+  getCompanyMarketContext,
+  getCompanyPageData,
   getDrug,
   getDrugById,
   getDrugsByIndications,
@@ -421,6 +423,27 @@ describe("global section data functions", () => {
     expect(sun?.globalFootprint).toContain("Taro");
     const pfizer = await getCompany("pfizer");
     expect(pfizer?.globalFootprint).toBeUndefined();
+  });
+
+  it("loads the company page graph in its compact shape", async () => {
+    const detail = await getCompanyPageData("sun-pharma");
+    expect(detail?.company.canonicalName).toBe("Sun Pharmaceutical Industries Ltd");
+    expect(detail?.company.securities.length).toBeGreaterThan(0);
+    expect(detail?.drugs.length).toBeGreaterThan(0);
+    expect(detail?.events.length).toBeGreaterThan(0);
+    expect(detail?.patents.length).toBeLessThanOrEqual(10);
+    expect(detail?.patentCount).toBeGreaterThanOrEqual(detail?.patents.length ?? 0);
+  });
+
+  it("loads chart metadata and markers in one market context", async () => {
+    const context = await getCompanyMarketContext(
+      "sun-pharma",
+      "2020-01-01",
+      "2030-01-01T23:59:59.999Z",
+    );
+    expect(context?.ticker).toBe("SUNPHARMA");
+    expect(context?.exchange).toBe("NSE");
+    expect(context?.events.length).toBeGreaterThan(0);
   });
 
   it("getGlobalLinksForCompany resolves both directions", async () => {

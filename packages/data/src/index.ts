@@ -17,6 +17,7 @@ import type {
   EventFilters,
   EventType,
   MarketReaction,
+  OrangeBookPatent,
   Outcome,
   Paginated,
   ReviewStatus,
@@ -529,6 +530,186 @@ export async function getCompany(slug: string): Promise<Company | undefined> {
 
 export async function getCompanyById(id: string): Promise<Company | undefined> {
   return getCompanyRow("id = $1::uuid", id);
+}
+
+/**
+ * The exact, lightweight graph rendered by a company detail page.
+ *
+ * Keeping this as one PostgreSQL statement avoids the many sequential
+ * hydration round-trips used by the reusable entity getters. That matters on
+ * a cold serverless connection, where network latency costs more than the
+ * small amount of JSON aggregation done by Postgres.
+ */
+export interface CompanyPageData {
+  company: Company;
+  drugs: Array<Pick<Drug, "id" | "slug" | "canonicalName" | "indications">>;
+  trials: Array<Pick<Trial, "id" | "registry" | "registryTrialId" | "phase" | "status">>;
+  events: Array<Pick<CatalystEvent, "id" | "eventType" | "occurredAt" | "headline">>;
+  patents: OrangeBookPatent[];
+  patentCount: number;
+}
+
+interface CompanyPageRow extends CompanyDirectoryRow {
+  drugs: CompanyPageData["drugs"];
+  trials: CompanyPageData["trials"];
+  events: CompanyPageData["events"];
+  patents: OrangeBookPatent[];
+  patent_count: number;
+}
+
+export async function getCompanyPageData(slug: string): Promise<CompanyPageData | undefined> {
+  const { rows } = await getPool().query<CompanyPageRow>(
+    `SELECT c.id::text AS id, c.canonical_name, c.slug, c.description,
+            c.country, c.website,
+            COALESCE((
+              SELECT jsonb_agg(jsonb_build_object(
+                'exchange', s.exchange, 'ticker', s.ticker,
+                'currency', s.currency, 'isin', s.isin
+              ) ORDER BY s.exchange)
+              FROM securities s WHERE s.company_id = c.id
+            ), '[]'::jsonb) AS securities,
+            COALESCE((
+              SELECT jsonb_agg(a.alias ORDER BY a.alias)
+              FROM company_aliases a WHERE a.company_id = c.id
+            ), '[]'::jsonb) AS aliases,
+            COALESCE((
+              SELECT jsonb_agg(jsonb_build_object(
+                'id', d.id::text, 'slug', d.slug,
+                'canonicalName', d.canonical_name,
+                'indications', COALESCE((
+                  SELECT jsonb_agg(i.canonical_name ORDER BY i.canonical_name)
+                  FROM drug_indications di
+                  JOIN indications i ON i.id = di.indication_id
+                  WHERE di.drug_id = d.id
+                ), '[]'::jsonb)
+              ) ORDER BY d.canonical_name)
+              FROM drugs d
+              JOIN drug_company_links dcl ON dcl.drug_id = d.id
+              WHERE dcl.company_id = c.id
+            ), '[]'::jsonb) AS drugs,
+            COALESCE((
+              SELECT jsonb_agg(jsonb_build_object(
+                'id', t.id::text, 'registry', t.registry,
+                'registryTrialId', t.registry_trial_id,
+                'phase', COALESCE(t.phase, 'Preclinical'),
+                'status', COALESCE(t.status, 'Recruiting')
+              ) ORDER BY t.registry_trial_id)
+              FROM trials t WHERE t.sponsor_company_id = c.id
+            ), '[]'::jsonb) AS trials,
+            COALESCE((
+              SELECT jsonb_agg(jsonb_build_object(
+                'id', recent.id::text, 'eventType', recent.event_type,
+                'occurredAt', to_char(recent.occurred_at AT TIME ZONE 'UTC',
+                  'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+                'headline', recent.headline
+              ) ORDER BY recent.occurred_at DESC, recent.id DESC)
+              FROM (
+                SELECT DISTINCT e.id, e.event_type, e.occurred_at, e.headline
+                FROM events e
+                JOIN event_entities ee ON ee.event_id = e.id
+                WHERE ee.entity_type = 'company' AND ee.entity_id = c.id
+              ) recent
+            ), '[]'::jsonb) AS events,
+            COALESCE((
+              SELECT jsonb_agg(jsonb_build_object(
+                'id', p.id::text, 'patentNumber', p.patent_number,
+                'applNo', p.appl_no, 'productNo', p.product_no,
+                'tradeName', p.trade_name, 'applicant', p.applicant,
+                'activeIngredient', p.active_ingredient,
+                'expiryDate', p.expiry_date::text,
+                'drugSubstanceFlag', p.drug_substance_flag,
+                'drugProductFlag', p.drug_product_flag,
+                'patentUseCode', p.patent_use_code, 'delisted', p.delisted,
+                'companyId', p.company_id::text, 'drugId', p.drug_id::text
+              ) ORDER BY p.expiry_date NULLS LAST, p.patent_number)
+              FROM (
+                SELECT * FROM patents
+                WHERE company_id = c.id AND delisted = FALSE
+                ORDER BY expiry_date NULLS LAST, patent_number
+                LIMIT 10
+              ) p
+            ), '[]'::jsonb) AS patents,
+            (SELECT count(*)::int FROM patents p
+              WHERE p.company_id = c.id AND p.delisted = FALSE) AS patent_count
+       FROM companies c
+      WHERE c.slug = $1
+      LIMIT 1`,
+    [slug],
+  );
+  const row = rows[0];
+  if (!row) return undefined;
+  return {
+    company: mapCompany(row, row.securities.map(toSecurity), row.aliases),
+    drugs: row.drugs,
+    trials: row.trials,
+    events: row.events,
+    patents: row.patents,
+    patentCount: row.patent_count,
+  };
+}
+
+export interface CompanyMarketContext {
+  companyId: string;
+  ticker: string;
+  exchange: Security["exchange"];
+  currency: Security["currency"];
+  events: Array<Pick<CatalystEvent, "id" | "eventType" | "occurredAt" | "headline">>;
+}
+
+interface CompanyMarketContextRow {
+  company_id: string;
+  ticker: string | null;
+  exchange: string | null;
+  currency: string | null;
+  events: CompanyMarketContext["events"];
+}
+
+/** Market-chart metadata and catalyst markers in one database round-trip. */
+export async function getCompanyMarketContext(
+  slug: string,
+  from: string,
+  to: string,
+): Promise<CompanyMarketContext | undefined> {
+  const { rows } = await getPool().query<CompanyMarketContextRow>(
+    `SELECT c.id::text AS company_id, sec.ticker, sec.exchange, sec.currency,
+            COALESCE((
+              SELECT jsonb_agg(jsonb_build_object(
+                'id', recent.id::text, 'eventType', recent.event_type,
+                'occurredAt', to_char(recent.occurred_at AT TIME ZONE 'UTC',
+                  'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+                'headline', recent.headline
+              ) ORDER BY recent.occurred_at DESC, recent.id DESC)
+              FROM (
+                SELECT DISTINCT e.id, e.event_type, e.occurred_at, e.headline
+                FROM events e
+                JOIN event_entities ee ON ee.event_id = e.id
+                WHERE ee.entity_type = 'company' AND ee.entity_id = c.id
+                  AND e.occurred_at >= $2::timestamptz
+                  AND e.occurred_at <= $3::timestamptz
+                ORDER BY e.occurred_at DESC, e.id DESC
+                LIMIT 40
+              ) recent
+            ), '[]'::jsonb) AS events
+       FROM companies c
+       LEFT JOIN LATERAL (
+         SELECT s.ticker, s.exchange, s.currency
+         FROM securities s WHERE s.company_id = c.id
+         ORDER BY CASE WHEN s.exchange = 'NSE' THEN 0 ELSE 1 END, s.exchange
+         LIMIT 1
+       ) sec ON TRUE
+      WHERE c.slug = $1
+      LIMIT 1`,
+    [slug, from, to],
+  );
+  const row = rows[0];
+  if (!row || !row.ticker || !row.exchange || !row.currency) return undefined;
+  return {
+    companyId: row.company_id,
+    ticker: row.ticker,
+    exchange: row.exchange as Security["exchange"],
+    currency: row.currency as Security["currency"],
+    events: row.events,
+  };
 }
 
 /** All tracked companies, alphabetically — powers the /companies browse page. */
