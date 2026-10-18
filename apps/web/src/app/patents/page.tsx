@@ -1,7 +1,17 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { getUpcomingPatentExpiries, getPatentStats } from "@biocatalyst/data";
 
 export const dynamic = "force-dynamic";
+
+const getCachedPatentExpiries = unstable_cache(
+  (withinDays: number) => getUpcomingPatentExpiries(undefined, { withinDays, limit: 300 }),
+  ["patent-expiries"],
+  { revalidate: 3600 },
+);
+const getCachedPatentStats = unstable_cache(getPatentStats, ["patent-stats"], {
+  revalidate: 3600,
+});
 
 function formatDays(d: number | null): string {
   if (d === null) return "—";
@@ -24,8 +34,8 @@ export default async function PatentsPage({
   const { within } = await searchParams;
   const withinDays = Math.min(Math.max(parseInt(within ?? "365", 10) || 365, 30), 1825);
   const [items, stats] = await Promise.all([
-    getUpcomingPatentExpiries(undefined, { withinDays, limit: 300 }),
-    getPatentStats(),
+    getCachedPatentExpiries(withinDays),
+    getCachedPatentStats(),
   ]);
 
   return (

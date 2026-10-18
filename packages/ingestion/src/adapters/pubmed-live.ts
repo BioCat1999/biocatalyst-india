@@ -106,7 +106,9 @@ export class PubmedAdapter implements SourceAdapter {
   constructor(fetchImpl?: typeof fetch, queries?: PubmedCompanyQuery[], delayMs?: number) {
     this.fetchImpl = fetchImpl ?? globalThis.fetch;
     this.queries = queries ?? PUBMED_COMPANY_QUERIES;
-    this.delayMs = delayMs ?? (process.env.NCBI_API_KEY ? 120 : 350);
+    // Keep NCBI politeness delays in production, but do not make stubbed
+    // integration tests wait between requests that never leave the process.
+    this.delayMs = delayMs ?? (process.env.NODE_ENV === "test" ? 0 : process.env.NCBI_API_KEY ? 120 : 350);
   }
 
   async fetchSince(cursor: Cursor): Promise<RawSourceDocument[]> {

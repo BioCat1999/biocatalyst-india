@@ -1,14 +1,23 @@
 import { Suspense } from "react";
-import { listEvents, toEventCard, EVENT_TYPES } from "@biocatalyst/data";
+import { unstable_cache } from "next/cache";
+import { listEvents, toEventCards, EVENT_TYPES } from "@biocatalyst/data";
 import type { EventType } from "@biocatalyst/types";
 import { EventCard } from "@/components/EventCard";
 import { FilterChips } from "@/components/FilterChips";
 
 export const revalidate = 3600;
 
+const getCachedFeed = unstable_cache(
+  async (eventType?: EventType) => {
+    const page = await listEvents(eventType ? { eventType } : {}, undefined, 30);
+    return { ...page, cards: await toEventCards(page.items) };
+  },
+  ["feed-first-page"],
+  { revalidate: 300 },
+);
+
 async function FeedList({ eventType }: { eventType?: EventType }) {
-  const { items, nextCursor } = await listEvents(eventType ? { eventType } : {}, undefined, 30);
-  const cards = await Promise.all(items.map(toEventCard));
+  const { items, nextCursor, cards } = await getCachedFeed(eventType);
   if (items.length === 0) {
     return (
       <div className="empty">

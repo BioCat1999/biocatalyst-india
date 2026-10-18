@@ -533,11 +533,29 @@ export async function getCompanyById(id: string): Promise<Company | undefined> {
 
 /** All tracked companies, alphabetically — powers the /companies browse page. */
 export async function listCompanies(): Promise<Company[]> {
-  const { rows } = await getPool().query<CompanyRow>(
-    `SELECT id::text AS id, canonical_name, slug, description, country, website
-       FROM companies ORDER BY canonical_name`,
+  const { rows } = await getPool().query<CompanyDirectoryRow>(
+    `SELECT c.id::text AS id, c.canonical_name, c.slug, c.description,
+            c.country, c.website,
+            COALESCE(
+              (SELECT jsonb_agg(jsonb_build_object(
+                 'exchange', s.exchange,
+                 'ticker', s.ticker,
+                 'currency', s.currency,
+                 'isin', s.isin
+               ) ORDER BY s.exchange)
+                 FROM securities s WHERE s.company_id = c.id),
+              '[]'::jsonb
+            ) AS securities,
+            COALESCE(
+              (SELECT jsonb_agg(a.alias ORDER BY a.alias)
+                 FROM company_aliases a WHERE a.company_id = c.id),
+              '[]'::jsonb
+            ) AS aliases
+       FROM companies c ORDER BY c.canonical_name`,
   );
-  return hydrateCompanies(rows);
+  return rows.map((row) =>
+    mapCompany(row, row.securities.map(toSecurity), row.aliases),
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -660,17 +678,30 @@ export interface IpoEntry {
  * listed); a stale DRHP story never downgrades an already-listed company.
  */
 export async function listIpoPipeline(): Promise<IpoEntry[]> {
-  const { rows } = await getPool().query<CompanyRow>(
-    `SELECT c.id::text AS id, c.canonical_name, c.slug, c.description, c.country, c.website
+  const { rows } = await getPool().query<CompanyDirectoryRow>(
+    `SELECT c.id::text AS id, c.canonical_name, c.slug, c.description,
+            c.country, c.website,
+            COALESCE(
+              (SELECT jsonb_agg(jsonb_build_object(
+                 'exchange', s.exchange,
+                 'ticker', s.ticker,
+                 'currency', s.currency,
+                 'isin', s.isin
+               ) ORDER BY s.exchange)
+                 FROM securities s WHERE s.company_id = c.id),
+              '[]'::jsonb
+            ) AS securities,
+            '[]'::jsonb AS aliases
        FROM companies c
       WHERE c.slug = ANY($1)
       ORDER BY c.canonical_name`,
     [ipoCatalog.map((r) => r.slug)],
   );
-  // The IPO list only exposes the compact company fields below. Avoid the
-  // securities and aliases hydration queries used by full company pages;
-  // each extra database round trip is noticeable on a serverless cold start.
-  const companies = rows.map((row) => mapCompany(row, [], []));
+  // Keep ticker data for recently listed companies while avoiding a second
+  // database round trip on serverless cold starts.
+  const companies = rows.map((row) =>
+    mapCompany(row, row.securities.map(toSecurity), row.aliases),
+  );
   const bySlug = new Map(companies.map((c) => [c.slug, c]));
   if (companies.length === 0) return [];
   const companyIds = companies.map((company) => company.id);
@@ -848,6 +879,59 @@ export async function getRecentReactionsForCompany(
     relativeChange: r.relative_change != null ? Number(r.relative_change) : null,
     provider: r.provider,
   }));
+}
+
+export interface CompanyComparisonData {
+  drugs: Array<{ id: string; slug: string; canonicalName: string; modality?: string }>;
+  phaseCounts: Array<{ phase: string; count: number }>;
+  events: Array<{ id: string; headline: string; occurredAt: string; eventType: EventType }>;
+  reactions: CompanyMarketMove[];
+}
+
+/** Compact compare-card data without hydrating entity graphs the card never uses. */
+export async function getCompanyComparison(companyId: string): Promise<CompanyComparisonData> {
+  const pool = getPool();
+  const [drugRows, trialRows, eventRows, reactions] = await Promise.all([
+    pool.query<{ id: string; slug: string; canonical_name: string; modality: string | null }>(
+      `SELECT d.id::text AS id, d.slug, d.canonical_name, d.modality
+         FROM drugs d
+         JOIN drug_company_links l ON l.drug_id = d.id
+        WHERE l.company_id = $1::uuid
+        ORDER BY d.canonical_name`,
+      [companyId],
+    ),
+    pool.query<{ phase: string; count: number }>(
+      `SELECT COALESCE(phase, 'Preclinical') AS phase, COUNT(*)::int AS count
+         FROM trials WHERE sponsor_company_id = $1::uuid
+        GROUP BY COALESCE(phase, 'Preclinical') ORDER BY phase`,
+      [companyId],
+    ),
+    pool.query<{ id: string; headline: string; occurred_at: Date; event_type: string }>(
+      `SELECT e.id::text AS id, e.headline, e.occurred_at, e.event_type
+         FROM events e
+         JOIN event_entities ee ON ee.event_id = e.id
+        WHERE ee.entity_type = 'company' AND ee.entity_id = $1::uuid
+        ORDER BY e.occurred_at DESC, e.id DESC LIMIT 5`,
+      [companyId],
+    ),
+    getRecentReactionsForCompany(companyId, 5),
+  ]);
+  return {
+    drugs: drugRows.rows.map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      canonicalName: row.canonical_name,
+      ...(row.modality ? { modality: row.modality } : {}),
+    })),
+    phaseCounts: trialRows.rows,
+    events: eventRows.rows.map((row) => ({
+      id: row.id,
+      headline: row.headline,
+      occurredAt: row.occurred_at.toISOString(),
+      eventType: row.event_type as EventType,
+    })),
+    reactions,
+  };
 }
 
 export async function getTrial(

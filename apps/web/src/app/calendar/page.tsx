@@ -1,13 +1,27 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import {
-  getCompanyById,
-  getDrugById,
   getUpcomingTrials,
+  listCompanies,
+  listDrugs,
 } from "@biocatalyst/data";
 import { trialUrl } from "@/lib/urls";
 import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+
+const getCachedCalendarData = unstable_cache(
+  async () => {
+    const [trials, companies, drugs] = await Promise.all([
+      getUpcomingTrials(100),
+      listCompanies(),
+      listDrugs(),
+    ]);
+    return { trials, companies, drugs };
+  },
+  ["catalyst-calendar"],
+  { revalidate: 600 },
+);
 
 function monthKey(iso: string): string {
   return iso.slice(0, 7); // YYYY-MM
@@ -22,13 +36,14 @@ function monthLabel(iso: string): string {
 }
 
 export default async function CalendarPage() {
-  const trials = await getUpcomingTrials(100);
-
-  const sponsorOpts = await Promise.all(
-    trials.map((t) => (t.sponsorCompanyId ? getCompanyById(t.sponsorCompanyId) : undefined)),
+  const { trials, companies, drugs } = await getCachedCalendarData();
+  const companiesById = new Map(companies.map((company) => [company.id, company]));
+  const drugsById = new Map(drugs.map((drug) => [drug.id, drug]));
+  const sponsorOpts = trials.map((trial) =>
+    trial.sponsorCompanyId ? companiesById.get(trial.sponsorCompanyId) : undefined,
   );
-  const drugOpts = await Promise.all(
-    trials.map((t) => Promise.all(t.drugIds.map((id) => getDrugById(id)))),
+  const drugOpts = trials.map((trial) =>
+    trial.drugIds.map((id) => drugsById.get(id)).filter((drug) => drug !== undefined),
   );
 
   const byMonth = new Map<string, number[]>();

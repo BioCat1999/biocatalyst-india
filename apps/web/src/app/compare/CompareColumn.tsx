@@ -1,20 +1,21 @@
 import Link from "next/link";
-import {
-  getCompany,
-  getDrugsForCompany,
-  getEventsForCompany,
-  getRecentReactionsForCompany,
-  getTrialsForCompany,
-} from "@biocatalyst/data";
+import type { Company, CompanyComparisonData } from "@biocatalyst/data";
 import { formatDate, formatPct } from "@/lib/format";
 
 /**
  * One side of the company-compare view: overview, pipeline, recent events,
  * and recent market moves.
  */
-export default async function CompareColumn({ slug }: { slug: string }) {
-  const company = await getCompany(slug);
-  if (!company) {
+export default function CompareColumn({
+  slug,
+  company,
+  data,
+}: {
+  slug: string;
+  company?: Company;
+  data: CompanyComparisonData | null;
+}) {
+  if (!company || !data) {
     return (
       <div className="card">
         <p>Unknown company: {slug}</p>
@@ -22,17 +23,8 @@ export default async function CompareColumn({ slug }: { slug: string }) {
     );
   }
 
-  const [drugs, trials, events, reactions] = await Promise.all([
-    getDrugsForCompany(company.id),
-    getTrialsForCompany(company.id),
-    getEventsForCompany(company.id),
-    getRecentReactionsForCompany(company.id, 5),
-  ]);
-
-  const phaseCounts = new Map<string, number>();
-  for (const t of trials) {
-    phaseCounts.set(t.phase, (phaseCounts.get(t.phase) ?? 0) + 1);
-  }
+  const { drugs, phaseCounts, events, reactions } = data;
+  const trialCount = phaseCounts.reduce((sum, phase) => sum + phase.count, 0);
 
   const tickers = company.securities
     .map((s) => `${s.exchange}:${s.ticker}`)
@@ -55,12 +47,12 @@ export default async function CompareColumn({ slug }: { slug: string }) {
       <h3>Pipeline</h3>
       <p style={{ fontSize: 14 }}>
         <strong>{drugs.length}</strong> tracked drugs ·{" "}
-        <strong>{trials.length}</strong> trials
-        {phaseCounts.size > 0 && (
+        <strong>{trialCount}</strong> trials
+        {phaseCounts.length > 0 && (
           <>
             {" ("}
-            {[...phaseCounts.entries()]
-              .map(([phase, n]) => `${n}× ${phase}`)
+            {phaseCounts
+              .map(({ phase, count }) => `${count}× ${phase}`)
               .join(", ")}
             {")"}
           </>

@@ -16,5 +16,9 @@ export default defineConfig({
   },
   test: {
     include: ["src/**/*.test.{ts,tsx}"],
+    // The API integration files intentionally share biocatalyst_web_test.
+    // Run files serially so one suite's cleanup cannot delete another
+    // suite's users or sessions mid-request.
+    fileParallelism: false,
   },
 });

@@ -1,8 +1,16 @@
-import { listCompanies } from "@biocatalyst/data";
+import { unstable_cache } from "next/cache";
+import { getCompanyComparison, listCompanies } from "@biocatalyst/data";
 import ComparePickers from "./ComparePickers";
 import CompareColumn from "./CompareColumn";
 
 export const dynamic = "force-dynamic";
+
+const getCachedCompanies = unstable_cache(listCompanies, ["compare-company-directory"], {
+  revalidate: 300,
+});
+const getCachedComparison = unstable_cache(getCompanyComparison, ["company-comparison"], {
+  revalidate: 300,
+});
 
 /**
  * Company compare — side-by-side pipeline, events, and market moves for two
@@ -14,12 +22,17 @@ export default async function ComparePage({
 }: {
   searchParams: Promise<{ a?: string; b?: string }>;
 }) {
-  const companies = await listCompanies();
-  const params = await searchParams;
+  const [companies, params] = await Promise.all([getCachedCompanies(), searchParams]);
   const aSlug =
     companies.some((c) => c.slug === params.a) ? (params.a as string) : (companies[0]?.slug ?? "");
   const bSlug =
     companies.some((c) => c.slug === params.b) ? (params.b as string) : (companies[1]?.slug ?? aSlug);
+  const aCompany = companies.find((company) => company.slug === aSlug);
+  const bCompany = companies.find((company) => company.slug === bSlug);
+  const [aData, bData] = await Promise.all([
+    aCompany ? getCachedComparison(aCompany.id) : Promise.resolve(null),
+    bCompany ? getCachedComparison(bCompany.id) : Promise.resolve(null),
+  ]);
 
   return (
     <>
@@ -45,8 +58,8 @@ export default async function ComparePage({
           paddingBottom: 48,
         }}
       >
-        <CompareColumn slug={aSlug} />
-        <CompareColumn slug={bSlug} />
+        <CompareColumn company={aCompany} data={aData} slug={aSlug} />
+        <CompareColumn company={bCompany} data={bData} slug={bSlug} />
       </div>
     </>
   );

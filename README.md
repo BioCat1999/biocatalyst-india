@@ -62,7 +62,10 @@ DB-backed suites each get an isolated database —
 `biocatalyst_market_test`, `biocatalyst_auth_test`,
 `biocatalyst_notifications_test`, `biocatalyst_web_test` — so parallel
 test runs can't interfere (see `docs/decisions.md`).
-`pnpm db:setup` needs `sudo` once to create the Postgres role/databases.
+On macOS, install/start PostgreSQL with Homebrew (`brew install postgresql@16`
+and `brew services start postgresql@16`); `pnpm db:setup` then uses the local
+admin user. On Linux it uses `sudo -u postgres` for the one-time role/database
+creation.
 
 ## Ingestion (Milestones 3 & 7)
 

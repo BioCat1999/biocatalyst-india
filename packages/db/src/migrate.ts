@@ -24,7 +24,13 @@ export async function migrate(pool: Pool): Promise<string[]> {
 
   const applied: string[] = [];
   const client = await pool.connect();
+  let migrationLockHeld = false;
   try {
+    // Several Vitest files and serverless deploy workers may initialize the
+    // same database concurrently. Serialize schema setup so CREATE EXTENSION
+    // and the migration ledger cannot race each other.
+    await client.query("SELECT pg_advisory_lock(hashtext('biocatalyst_schema_migrations'))");
+    migrationLockHeld = true;
     // Bootstrap the bookkeeping table if this is a fresh database.
     await client.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -56,6 +62,9 @@ export async function migrate(pool: Pool): Promise<string[]> {
       applied.push(version);
     }
   } finally {
+    if (migrationLockHeld) {
+      await client.query("SELECT pg_advisory_unlock(hashtext('biocatalyst_schema_migrations'))");
+    }
     client.release();
   }
   return applied;

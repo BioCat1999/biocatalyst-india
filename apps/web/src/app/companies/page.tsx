@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { listCompanies } from "@biocatalyst/data";
 import { FollowButton } from "@/components/FollowButton";
 import {
@@ -9,6 +10,10 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const getCachedCompanies = unstable_cache(listCompanies, ["company-directory"], {
+  revalidate: 300,
+});
+
 export default async function CompaniesPage({
   searchParams,
 }: {
@@ -16,7 +21,7 @@ export default async function CompaniesPage({
 }) {
   const { category } = await searchParams;
   const active = category && isKnownCategory(category) ? category : "all";
-  const companies = await listCompanies();
+  const companies = await getCachedCompanies();
   const visible =
     active === "all"
       ? companies

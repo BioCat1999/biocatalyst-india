@@ -1,17 +1,18 @@
 import Link from "next/link";
-import { getDrugsByIndications, listDrugs } from "@biocatalyst/data";
+import { unstable_cache } from "next/cache";
+import { listDrugs } from "@biocatalyst/data";
 import { THERAPEUTIC_AREAS, MODALITY_GROUPS } from "@/lib/explore-taxonomy";
 
 export const dynamic = "force-dynamic";
 
+const getCachedDrugs = unstable_cache(listDrugs, ["explore-drugs"], { revalidate: 600 });
+
 export default async function ExplorePage() {
   // Drug counts per section so the cards feel alive.
-  const [areaCounts, allDrugs] = await Promise.all([
-    Promise.all(
-      THERAPEUTIC_AREAS.map(async (a) => (await getDrugsByIndications(a.indications)).length),
-    ),
-    listDrugs(),
-  ]);
+  const allDrugs = await getCachedDrugs();
+  const areaCounts = THERAPEUTIC_AREAS.map((area) =>
+    allDrugs.filter((drug) => drug.indications.some((item) => area.indications.includes(item))).length,
+  );
   const modalityCounts = MODALITY_GROUPS.map(
     (g) => allDrugs.filter((d) => d.modality && g.modalities.includes(d.modality)).length,
   );

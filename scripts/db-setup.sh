@@ -4,9 +4,8 @@
 #   pnpm db:setup          create role + databases (if missing), migrate, seed
 #   pnpm db:setup --reset  drop both databases first, then recreate/migrate/seed
 #
-# Requires: local PostgreSQL server (Ubuntu: `sudo apt install postgresql`),
-# plus sudo for the one-time role/database creation. Uses only Ubuntu
-# archive packages — no third-party apt sources, no paid services.
+# Requires a local PostgreSQL server. On macOS, Homebrew PostgreSQL runs under
+# the current user; on Linux the script uses the system `postgres` account.
 set -euo pipefail
 
 DB_USER="biocatalyst"
@@ -21,21 +20,31 @@ NOTIFICATIONS_TEST_DB="biocatalyst_notifications_test"
 WEB_TEST_DB="biocatalyst_web_test"
 RESET="${1:-}"
 
+if [ "$(uname -s)" = "Darwin" ]; then
+  PSQL_ADMIN=(psql postgres)
+  CREATEDB_ADMIN=(createdb)
+  DROPDB_ADMIN=(dropdb)
+else
+  PSQL_ADMIN=(sudo -u postgres psql)
+  CREATEDB_ADMIN=(sudo -u postgres createdb)
+  DROPDB_ADMIN=(sudo -u postgres dropdb)
+fi
+
 if [ "$RESET" = "--reset" ]; then
   for DB in "$DEV_DB" "$TEST_DB" "$INGESTION_TEST_DB" "$EXTRACTION_TEST_DB" "$MARKET_TEST_DB" "$AUTH_TEST_DB" "$NOTIFICATIONS_TEST_DB" "$WEB_TEST_DB"; do
-    if sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${DB}'" | grep -q 1; then
+    if "${PSQL_ADMIN[@]}" -tAc "SELECT 1 FROM pg_database WHERE datname='${DB}'" | grep -q 1; then
       # Terminate open connections so DROP succeeds.
-      sudo -u postgres psql -c \
+      "${PSQL_ADMIN[@]}" -c \
         "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${DB}' AND pid <> pg_backend_pid();" \
         > /dev/null
-      sudo -u postgres dropdb "$DB"
+      "${DROPDB_ADMIN[@]}" "$DB"
       echo "dropped database ${DB}"
     fi
   done
 fi
 
 # Idempotent role creation.
-sudo -u postgres psql -v ON_ERROR_STOP=1 <<EOF > /dev/null
+"${PSQL_ADMIN[@]}" -v ON_ERROR_STOP=1 <<EOF > /dev/null
 DO \$\$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${DB_USER}') THEN
@@ -46,8 +55,8 @@ END
 EOF
 
 for DB in "$DEV_DB" "$TEST_DB" "$INGESTION_TEST_DB" "$EXTRACTION_TEST_DB" "$MARKET_TEST_DB" "$AUTH_TEST_DB" "$NOTIFICATIONS_TEST_DB" "$WEB_TEST_DB"; do
-  if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${DB}'" | grep -q 1; then
-    sudo -u postgres createdb -O "$DB_USER" "$DB"
+  if ! "${PSQL_ADMIN[@]}" -tAc "SELECT 1 FROM pg_database WHERE datname='${DB}'" | grep -q 1; then
+    "${CREATEDB_ADMIN[@]}" -O "$DB_USER" "$DB"
     echo "created database ${DB} (owner ${DB_USER})"
   fi
 done

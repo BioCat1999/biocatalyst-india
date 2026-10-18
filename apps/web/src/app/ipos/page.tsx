@@ -1,9 +1,14 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { listIpoPipeline, type IpoStatus } from "@biocatalyst/data";
 import { EventTypeTag } from "@/components/EventTypeTag";
 import { formatDateTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+
+const getCachedIpoPipeline = unstable_cache(listIpoPipeline, ["ipo-pipeline"], {
+  revalidate: 300,
+});
 
 const STATUS_LABEL: Record<IpoStatus, string> = {
   in_pipeline: "In pipeline",
@@ -24,7 +29,7 @@ const STATUS_CLASS: Record<IpoStatus, string> = {
  * can only advance it. This is a research tracker, not investment advice.
  */
 export default async function IposPage() {
-  const entries = await listIpoPipeline();
+  const entries = await getCachedIpoPipeline();
 
   return (
     <>
