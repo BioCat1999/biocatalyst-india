@@ -55,6 +55,10 @@ interface SecurityRow {
   currency: string;
   isin: string | null;
 }
+interface CompanyDirectoryRow extends CompanyRow {
+  securities: SecurityRow[];
+  aliases: string[];
+}
 interface DrugRow {
   id: string;
   canonical_name: string;
@@ -570,11 +574,31 @@ export type { OrangeBookPatent } from "@biocatalyst/types";
 
 /** Companies headquartered outside India, alphabetically. */
 export async function listGlobalCompanies(): Promise<Company[]> {
-  const { rows } = await getPool().query<CompanyRow>(
-    `SELECT id::text AS id, canonical_name, slug, description, country, website
-       FROM companies WHERE country <> 'India' ORDER BY canonical_name`,
+  const { rows } = await getPool().query<CompanyDirectoryRow>(
+    `SELECT c.id::text AS id, c.canonical_name, c.slug, c.description,
+            c.country, c.website,
+            COALESCE(
+              (SELECT jsonb_agg(jsonb_build_object(
+                 'exchange', s.exchange,
+                 'ticker', s.ticker,
+                 'currency', s.currency,
+                 'isin', s.isin
+               ) ORDER BY s.exchange)
+                 FROM securities s WHERE s.company_id = c.id),
+              '[]'::jsonb
+            ) AS securities,
+            COALESCE(
+              (SELECT jsonb_agg(a.alias ORDER BY a.alias)
+                 FROM company_aliases a WHERE a.company_id = c.id),
+              '[]'::jsonb
+            ) AS aliases
+       FROM companies c
+      WHERE c.country <> 'India'
+      ORDER BY c.canonical_name`,
   );
-  return hydrateCompanies(rows);
+  return rows.map((row) =>
+    mapCompany(row, row.securities.map(toSecurity), row.aliases),
+  );
 }
 
 const KNOWN_COMPANIES_BY_SLUG: Map<string, { canonicalName: string; country: string }> =

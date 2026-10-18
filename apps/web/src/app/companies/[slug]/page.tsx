@@ -12,6 +12,7 @@ import { FollowButton } from "@/components/FollowButton";
 import { EventTypeTag } from "@/components/EventTypeTag";
 import { formatDateTime } from "@/lib/format";
 import { trialUrl } from "@/lib/urls";
+import { CompanyMarketChart } from "@/components/CompanyMarketChart";
 
 export const dynamic = "force-static";
 
@@ -66,6 +67,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ slug: 
 
       <div className="detail-grid">
         <div>
+          {company.securities.length > 0 && <CompanyMarketChart slug={company.slug} />}
           <section className="panel" aria-label="Recent catalysts">
             <h2>Recent catalysts ({events.length})</h2>
             {events.length === 0 ? (

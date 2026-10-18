@@ -1,8 +1,17 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { listGlobalCompanies } from "@biocatalyst/data";
 import { FollowButton } from "@/components/FollowButton";
 
 export const dynamic = "force-dynamic";
+
+// The catalog changes during ingestion, not per visit. Cache the single-query
+// result without forcing Next to contact Postgres while building the app.
+const getCachedGlobalCompanies = unstable_cache(
+  listGlobalCompanies,
+  ["global-company-directory"],
+  { revalidate: 300 },
+);
 
 /**
  * Global section: non-Indian pharma majors tracked for their India impact —
@@ -11,7 +20,7 @@ export const dynamic = "force-dynamic";
  * manufacturers. Quotes are on each company page (delayed Yahoo Finance).
  */
 export default async function GlobalPage() {
-  const companies = await listGlobalCompanies();
+  const companies = await getCachedGlobalCompanies();
 
   return (
     <>
