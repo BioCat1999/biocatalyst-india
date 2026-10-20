@@ -3,7 +3,7 @@
  * email/password accounts; any valid email address (including Gmail)
  * can be used. AuthContext switches the root navigator after success.
  */
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -23,6 +23,7 @@ import {
 } from "@react-native-google-signin/google-signin";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useAuth } from "../auth/AuthContext";
+import { API_URL } from "../api";
 import type { RootStackParamList } from "../navigation/types";
 import { Screen } from "../components/Ui";
 import { colors, fontSize, radius, spacing } from "../theme";
@@ -30,14 +31,7 @@ import { colors, fontSize, radius, spacing } from "../theme";
 type SignInProps = NativeStackScreenProps<RootStackParamList, "SignIn">;
 type SignUpProps = NativeStackScreenProps<RootStackParamList, "SignUp">;
 
-const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
-
-if (GOOGLE_WEB_CLIENT_ID) {
-  GoogleSignin.configure({
-    webClientId: GOOGLE_WEB_CLIENT_ID,
-    offlineAccess: false,
-  });
-}
+const BUILD_GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
 
 function AuthForm({
   mode,
@@ -52,6 +46,33 @@ function AuthForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+  const [googleClientId, setGoogleClientId] = useState<string | undefined>(
+    BUILD_GOOGLE_WEB_CLIENT_ID,
+  );
+
+  useEffect(() => {
+    let active = true;
+    const configure = (webClientId: string) => {
+      GoogleSignin.configure({ webClientId, offlineAccess: false });
+      if (active) setGoogleClientId(webClientId);
+    };
+    if (BUILD_GOOGLE_WEB_CLIENT_ID) {
+      configure(BUILD_GOOGLE_WEB_CLIENT_ID);
+      return () => { active = false; };
+    }
+    fetch(`${API_URL}/api/v1/auth/config`)
+      .then((response) => {
+        if (!response.ok) throw new Error("auth config unavailable");
+        return response.json() as Promise<{ googleClientId?: string }>;
+      })
+      .then(({ googleClientId: value }) => {
+        if (value) configure(value);
+      })
+      .catch(() => {
+        // Email/password remains available if Google configuration is offline.
+      });
+    return () => { active = false; };
+  }, []);
 
   const submit = async () => {
     setLocalError(null);
@@ -68,8 +89,8 @@ function AuthForm({
 
   const continueWithGoogle = async () => {
     setLocalError(null);
-    if (!GOOGLE_WEB_CLIENT_ID) {
-      setLocalError("Google sign-in is not configured for this build.");
+    if (!googleClientId) {
+      setLocalError("Google sign-in is still loading. Please try again shortly.");
       return;
     }
     try {
@@ -112,7 +133,7 @@ function AuthForm({
           size={GoogleSigninButton.Size.Wide}
           color={GoogleSigninButton.Color.Light}
           onPress={continueWithGoogle}
-          disabled={busy}
+          disabled={busy || !googleClientId}
           style={styles.googleButton}
         />
         <View style={styles.dividerRow}>
