@@ -35,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/">Feed</Link>
               <Link href="/companies">Companies</Link>
               <Link href="/global">Global</Link>
-              <Link href="/insights">Insights</Link>
+              <Link href="/insights" aria-label="AI intelligence dashboard">AI</Link>
               <Link href="/ipos">IPOs</Link>
               <Link href="/patents">Patents</Link>
               <Link href="/explore">Explore</Link>

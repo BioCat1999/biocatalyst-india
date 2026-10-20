@@ -62,10 +62,10 @@ function InsightsButton({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       hitSlop={10}
       accessibilityRole="button"
-      accessibilityLabel="Intelligence dashboard"
+      accessibilityLabel="AI intelligence dashboard"
       style={styles.insightsButton}
     >
-      <Ionicons name="analytics-outline" size={20} color={colors.white} />
+      <Text style={styles.insightsButtonText}>AI</Text>
     </Pressable>
   );
 }
@@ -199,12 +199,19 @@ const styles = StyleSheet.create({
   },
   insightsButton: {
     marginRight: 6,
-    width: 34,
+    minWidth: 38,
     height: 34,
+    paddingHorizontal: 8,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  insightsButtonText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0.6,
   },
   ipoButtonText: { color: colors.white, fontSize: 12, fontWeight: "800", letterSpacing: 0.4 },
 });
