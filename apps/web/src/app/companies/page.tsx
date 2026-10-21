@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
-import { listCompanies } from "@biocatalyst/data";
+import { listCompanies, listIndianCompaniesPage } from "@biocatalyst/data";
 import { FollowButton } from "@/components/FollowButton";
 import {
   COMPANY_CATEGORIES,
@@ -17,25 +17,38 @@ const getCachedCompanies = unstable_cache(listCompanies, ["company-directory"], 
 export default async function CompaniesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string }>;
+  searchParams: Promise<{ category?: string; cursor?: string; q?: string }>;
 }) {
-  const { category } = await searchParams;
+  const { category, cursor, q } = await searchParams;
   const active = category && isKnownCategory(category) ? category : "all";
-  const companies = await getCachedCompanies();
-  const visible =
-    active === "all"
+  const query = q?.trim() ?? "";
+  const page = active === "all"
+    ? await listIndianCompaniesPage({ limit: 50, cursor, query })
+    : null;
+  const companies = page
+    ? page.items
+    : (await getCachedCompanies()).filter((c) => c.country === "India");
+  const visible = active === "all"
       ? companies
       : companies.filter((c) =>
           categoriesForCompany(c.slug).some((cc) => cc.id === active),
         );
   const activeMeta = COMPANY_CATEGORIES.find((c) => c.id === active);
+  const offset = Number.parseInt(cursor ?? "0", 10) || 0;
+  const pageHref = (next: number | string) => {
+    const values = new URLSearchParams();
+    if (query) values.set("q", query);
+    if (String(next) !== "0") values.set("cursor", String(next));
+    const suffix = values.toString();
+    return suffix ? `/companies?${suffix}` : "/companies";
+  };
 
   return (
     <>
       <div className="page-head">
         <h1>Companies</h1>
         <p>
-          {companies.length} tracked India-linked pharma companies. Browse by
+          {(page?.total ?? companies.length).toLocaleString()} tracked Indian life-sciences companies. Browse by
           category, or follow the ones you care about to get alerts.
         </p>
       </div>
@@ -60,6 +73,19 @@ export default async function CompaniesPage({
         <p style={{ color: "var(--muted)", fontSize: 13, marginTop: -8 }}>
           {activeMeta.blurb}
         </p>
+      )}
+
+      {active === "all" && (
+        <form action="/companies" method="get" style={{ marginBottom: 16 }}>
+          <input
+            type="search"
+            name="q"
+            defaultValue={query}
+            placeholder="Search Indian companies…"
+            aria-label="Search Indian companies"
+            style={{ width: "100%", padding: "12px 14px", borderRadius: 10 }}
+          />
+        </form>
       )}
 
       <div style={{ paddingBottom: 48 }}>
@@ -109,6 +135,18 @@ export default async function CompaniesPage({
             </div>
           );
         })}
+        {page && page.total > 0 && (
+          <nav
+            aria-label="Indian company pages"
+            style={{ display: "flex", justifyContent: "space-between", marginTop: 20 }}
+          >
+            {offset > 0 ? <Link href={pageHref(Math.max(0, offset - 50))}>← Previous</Link> : <span />}
+            <span style={{ color: "var(--muted)" }}>
+              {offset + 1}–{Math.min(offset + visible.length, page.total)} of {page.total.toLocaleString()}
+            </span>
+            {page.nextCursor ? <Link href={pageHref(page.nextCursor)}>Next →</Link> : <span />}
+          </nav>
+        )}
       </div>
     </>
   );

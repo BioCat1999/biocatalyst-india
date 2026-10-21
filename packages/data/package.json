@@ -29,6 +29,7 @@
     "seed:db": "node dist/seed-db.js",
     "seed:companies": "node dist/seed-companies.js",
     "sync:global-companies": "node dist/sync-global-companies.js",
+    "sync:indian-companies": "node dist/sync-indian-companies.js",
     "sync:patents": "node dist/sync-patents.js",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"

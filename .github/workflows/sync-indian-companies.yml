@@ -1,0 +1,35 @@
+name: sync-indian-companies
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/sync-indian-companies.yml"
+      - "apps/web/src/app/api/v1/admin/companies/sync-india/route.ts"
+      - "packages/data/src/sync-indian-companies.ts"
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Wait for deployment and sync 1,200 Indian companies
+        shell: bash
+        run: |
+          for attempt in $(seq 1 24); do
+            status=$(curl -sS -o response.json -w "%{http_code}" --max-time 70 \
+              -X POST "https://biocatalyst-india.vercel.app/api/v1/admin/companies/sync-india" \
+              -H "Authorization: Bearer ${{ secrets.ADMIN_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d '{"target":1200}' || true)
+            if [ "$status" = "200" ]; then
+              node -e 'const r=require("./response.json"); console.log(`Added ${r.added}; total Indian companies: ${r.totalIndianCompanies}`)'
+              exit 0
+            fi
+            echo "Attempt $attempt returned HTTP $status; waiting for the deployment"
+            sleep 15
+          done
+          echo "Indian company sync did not succeed"
+          sed -n '1,40p' response.json
+          exit 1

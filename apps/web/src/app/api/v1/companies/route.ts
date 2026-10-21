@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listCompanies, listGlobalCompaniesPage } from "@biocatalyst/data";
+import { listCompanies, listGlobalCompaniesPage, listIndianCompaniesPage } from "@biocatalyst/data";
 
 /**
  * GET /v1/companies?scope= — company directory for mobile clients.
@@ -20,10 +20,20 @@ export async function GET(req: NextRequest) {
       { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" } },
     );
   }
+  if (scope === "india") {
+    const limit = Number.parseInt(req.nextUrl.searchParams.get("limit") ?? "50", 10);
+    const page = await listIndianCompaniesPage({
+      limit: Number.isFinite(limit) ? limit : 50,
+      cursor: req.nextUrl.searchParams.get("cursor"),
+      query: req.nextUrl.searchParams.get("q") ?? "",
+    });
+    return NextResponse.json(
+      { ...page, items: page.items.map(compactCompany) },
+      { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" } },
+    );
+  }
   const companies =
-    scope === "india"
-        ? (await listCompanies()).filter((c) => c.country === "India")
-        : await listCompanies();
+    await listCompanies();
   return NextResponse.json(
     {
       items: companies.map(compactCompany),
