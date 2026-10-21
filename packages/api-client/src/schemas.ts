@@ -318,6 +318,8 @@ export type CompanyListItem = z.infer<typeof companyListItemSchema>;
 
 export const companyListResponseSchema = z.object({
   items: z.array(companyListItemSchema),
+  total: z.number().optional(),
+  nextCursor: z.string().nullable().optional(),
 });
 export type CompanyListResponse = z.infer<typeof companyListResponseSchema>;
 

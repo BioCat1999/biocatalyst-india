@@ -37,7 +37,7 @@ export function loadGlobalCompanies(force = false): Promise<CompanyListResponse>
   if (!force && globalCompanies) return Promise.resolve(globalCompanies);
   if (globalRequest) return globalRequest;
   globalRequest = getApiClient()
-    .listCompanies("global")
+    .listCompanies("global", { limit: 50 })
     .then((response) => {
       globalCompanies = response;
       return response;

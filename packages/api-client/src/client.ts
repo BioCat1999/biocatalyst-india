@@ -375,8 +375,16 @@ export class ApiClient {
   }
 
   /** Company directory. scope=global → non-Indian majors; scope=india → Indian catalog; omit → all. */
-  listCompanies(scope?: "global" | "india"): Promise<CompanyListResponse> {
-    return this.request(this.url("/api/v1/companies", scope ? { scope } : undefined), {
+  listCompanies(
+    scope?: "global" | "india",
+    options?: { limit?: number; cursor?: string; query?: string },
+  ): Promise<CompanyListResponse> {
+    return this.request(this.url("/api/v1/companies", {
+      ...(scope ? { scope } : {}),
+      ...(options?.limit ? { limit: options.limit } : {}),
+      ...(options?.cursor ? { cursor: options.cursor } : {}),
+      ...(options?.query ? { q: options.query } : {}),
+    }), {
       schema: companyListResponseSchema,
     });
   }

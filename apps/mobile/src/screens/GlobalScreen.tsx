@@ -11,6 +11,7 @@ import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { ApiError, type CompanyListItem } from "@biocatalyst/api-client";
 import { getCachedGlobalCompanies, loadGlobalCompanies } from "../contentCache";
+import { getApiClient } from "../api";
 import type { MainTabParamList, RootStackParamList } from "../navigation/types";
 import { Card, EmptyView, ErrorView, LoadingView, Screen } from "../components/Ui";
 import { colors, fontSize, spacing } from "../theme";
@@ -26,12 +27,17 @@ export function GlobalScreen({ navigation }: Props) {
   const [items, setItems] = useState<CompanyListItem[]>(() => cached?.items ?? []);
   const [loading, setLoading] = useState(cached === null);
   const [refreshing, setRefreshing] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(cached?.nextCursor ?? null);
+  const [total, setTotal] = useState(cached?.total ?? cached?.items.length ?? 0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
   const load = useCallback(async (force = false) => {
     try {
       const res = await loadGlobalCompanies(force);
       setItems(res.items);
+      setNextCursor(res.nextCursor ?? null);
+      setTotal(res.total ?? res.items.length);
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError(0, String(err), "network"));
@@ -40,6 +46,24 @@ export function GlobalScreen({ navigation }: Props) {
       setRefreshing(false);
     }
   }, []);
+
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await getApiClient().listCompanies("global", { limit: 50, cursor: nextCursor });
+      setItems((current) => {
+        const seen = new Set(current.map((item) => item.id));
+        return [...current, ...res.items.filter((item) => !seen.has(item.id))];
+      });
+      setNextCursor(res.nextCursor ?? null);
+      setTotal(res.total ?? total);
+    } catch (err) {
+      setError(err instanceof ApiError ? err : new ApiError(0, String(err), "network"));
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, nextCursor, total]);
 
   useFocusEffect(
     useCallback(() => {
@@ -71,10 +95,13 @@ export function GlobalScreen({ navigation }: Props) {
         ListEmptyComponent={<EmptyView message="No global companies tracked yet." />}
         ListHeaderComponent={
           <Text style={styles.blurb}>
-            Non-Indian pharma majors whose approvals, deals and patent moves
-            affect Indian companies.
+            {total.toLocaleString()} global clinical-industry companies. Results load in fast batches
+            as you scroll.
           </Text>
         }
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={loadingMore ? <LoadingView label="Loading more companies…" /> : null}
         renderItem={({ item }) => (
           <Pressable onPress={() => navigation.navigate("Company", { slug: item.slug })}>
             <Card>

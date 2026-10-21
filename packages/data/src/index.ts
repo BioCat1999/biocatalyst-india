@@ -800,6 +800,53 @@ export async function listGlobalCompanies(): Promise<Company[]> {
   );
 }
 
+export interface GlobalCompanyPage {
+  items: Company[];
+  total: number;
+  nextCursor: string | null;
+}
+
+/** A bounded global directory page, suitable for mobile and server rendering. */
+export async function listGlobalCompaniesPage(options: {
+  limit?: number;
+  cursor?: string | null;
+  query?: string;
+} = {}): Promise<GlobalCompanyPage> {
+  const limit = Math.min(100, Math.max(1, options.limit ?? 50));
+  const parsedOffset = Number.parseInt(options.cursor ?? "0", 10);
+  const offset = Number.isFinite(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0;
+  const query = options.query?.trim().slice(0, 100) ?? "";
+  const pattern = `%${query}%`;
+  const { rows } = await getPool().query<CompanyDirectoryRow & { total_count: string }>(
+    `SELECT c.id::text AS id, c.canonical_name, c.slug, c.description,
+            c.country, c.website, count(*) OVER ()::text AS total_count,
+            COALESCE(
+              (SELECT jsonb_agg(jsonb_build_object(
+                 'exchange', s.exchange, 'ticker', s.ticker,
+                 'currency', s.currency, 'isin', s.isin
+               ) ORDER BY s.exchange)
+                 FROM securities s WHERE s.company_id = c.id),
+              '[]'::jsonb
+            ) AS securities,
+            '[]'::jsonb AS aliases
+       FROM companies c
+      WHERE c.country <> 'India'
+        AND ($1 = '' OR c.canonical_name ILIKE $2)
+      ORDER BY c.canonical_name, c.id
+      LIMIT $3 OFFSET $4`,
+    [query, pattern, limit, offset],
+  );
+  const total = Number(rows[0]?.total_count ?? 0);
+  return {
+    items: rows.map((row) => mapCompany(row, row.securities.map(toSecurity), [])),
+    total,
+    nextCursor: offset + rows.length < total ? String(offset + rows.length) : null,
+  };
+}
+
+export { syncGlobalCompanies } from "./sync-global-companies.js";
+export type { GlobalCompanySyncResult } from "./sync-global-companies.js";
+
 const KNOWN_COMPANIES_BY_SLUG: Map<string, { canonicalName: string; country: string }> =
   new Map(
     [...indianCompanies, ...globalCompanies].map((c) => [
