@@ -34,8 +34,6 @@ jobs:
           - openfda
           - pubmed
           - sebi-rss
-          - mhra-rss
-          - ema-rss
           # GDELT is the least reliable upstream and may consume the full
           # request timeout, so run it last instead of blocking fresher feeds.
           - gdelt

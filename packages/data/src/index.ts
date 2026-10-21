@@ -806,46 +806,6 @@ export interface GlobalCompanyPage {
   nextCursor: string | null;
 }
 
-/** A bounded directory page for one exact headquarters country. */
-export async function listCompaniesByCountryPage(options: {
-  country: string;
-  limit?: number;
-  cursor?: string | null;
-  query?: string;
-}): Promise<GlobalCompanyPage> {
-  const limit = Math.min(100, Math.max(1, options.limit ?? 50));
-  const parsedOffset = Number.parseInt(options.cursor ?? "0", 10);
-  const offset = Number.isFinite(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0;
-  const query = options.query?.trim().slice(0, 100) ?? "";
-  const country = options.country.trim().slice(0, 100);
-  if (!country) return { items: [], total: 0, nextCursor: null };
-  const { rows } = await getPool().query<CompanyDirectoryRow & { total_count: string }>(
-    `SELECT c.id::text AS id, c.canonical_name, c.slug, c.description,
-            c.country, c.website, count(*) OVER ()::text AS total_count,
-            COALESCE(
-              (SELECT jsonb_agg(jsonb_build_object(
-                 'exchange', s.exchange, 'ticker', s.ticker,
-                 'currency', s.currency, 'isin', s.isin
-               ) ORDER BY s.exchange)
-                 FROM securities s WHERE s.company_id = c.id),
-              '[]'::jsonb
-            ) AS securities,
-            '[]'::jsonb AS aliases
-       FROM companies c
-      WHERE c.country = $1
-        AND ($2 = '' OR c.canonical_name ILIKE $3)
-      ORDER BY c.canonical_name, c.id
-      LIMIT $4 OFFSET $5`,
-    [country, query, `%${query}%`, limit, offset],
-  );
-  const total = Number(rows[0]?.total_count ?? 0);
-  return {
-    items: rows.map((row) => mapCompany(row, row.securities.map(toSecurity), [])),
-    total,
-    nextCursor: offset + rows.length < total ? String(offset + rows.length) : null,
-  };
-}
-
 /** A bounded global directory page, suitable for mobile and server rendering. */
 export async function listGlobalCompaniesPage(options: {
   limit?: number;

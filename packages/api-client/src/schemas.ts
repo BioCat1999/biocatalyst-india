@@ -43,9 +43,9 @@ export const authUserSchema = z.object({
 export type AuthUserProfile = z.infer<typeof authUserSchema>;
 
 const securitySchema = z.object({
-  exchange: z.enum(["NSE", "BSE", "NYSE", "NASDAQ", "LSE", "EPA", "XETRA", "SWX", "TSE", "AMS", "EBR", "HKEX"]),
+  exchange: z.enum(["NSE", "BSE", "NYSE", "NASDAQ", "LSE", "EPA", "XETRA", "SWX", "TSE"]),
   ticker: z.string(),
-  currency: z.enum(["INR", "USD", "CHF", "EUR", "GBP", "JPY", "HKD"]),
+  currency: z.enum(["INR", "USD", "CHF", "EUR", "GBP", "JPY"]),
   isin: z.string().optional(),
 });
 
@@ -64,7 +64,7 @@ const marketReactionSchema = z.object({
   windowStart: z.string().nullable(),
   windowEnd: z.string().nullable(),
   securityTicker: z.string(),
-  exchange: z.enum(["NSE", "BSE", "NYSE", "NASDAQ", "LSE", "EPA", "XETRA", "SWX", "TSE", "AMS", "EBR", "HKEX"]),
+  exchange: z.enum(["NSE", "BSE", "NYSE", "NASDAQ", "LSE", "EPA", "XETRA", "SWX", "TSE"]),
   priceBefore: z.number().nullable(),
   priceAfter: z.number().nullable(),
   pctChange: z.number().nullable(),

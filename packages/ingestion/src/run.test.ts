@@ -538,12 +538,6 @@ describe("multi-source ingestion (M7)", () => {
             text: async () => `<?xml version="1.0"?><rss version="2.0"><channel></channel></rss>`,
           };
         }
-        if (u.includes("gov.uk") || u.includes("ema.europa.eu")) {
-          return {
-            ok: true,
-            text: async () => `<?xml version="1.0"?><rss version="2.0"><channel></channel></rss>`,
-          };
-        }
         throw new Error(`unexpected fetch in test: ${u}`);
       }) as unknown as typeof fetch,
     );
@@ -553,17 +547,17 @@ describe("multi-source ingestion (M7)", () => {
   });
 
   it("runAllIngestion runs every registered adapter with per-source metrics", async () => {
-    expect(listSourceNames()).toEqual(["ctri-fixture", "bse-fixture", "pubmed-fixture", "ctgov", "gdelt", "press-rss", "prnewswire", "openfda", "pubmed", "sebi-rss", "mhra-rss", "ema-rss"]);
+    expect(listSourceNames()).toEqual(["ctri-fixture", "bse-fixture", "pubmed-fixture", "ctgov", "gdelt", "press-rss", "prnewswire", "openfda", "pubmed", "sebi-rss"]);
     const before = await eventCount();
     const all = await runAllIngestion(pool);
-    expect(all).toHaveLength(12);
+    expect(all).toHaveLength(10);
     const byName = Object.fromEntries(all.map((m) => [m.sourceName, m]));
     for (const m of all) {
       expect(m.status).toBe("success");
       expect(m.error).toBeNull();
     }
     // Live sources are stubbed to empty in tests — they succeed with no docs.
-    for (const name of ["ctgov", "gdelt", "press-rss", "prnewswire", "openfda", "pubmed", "sebi-rss", "mhra-rss", "ema-rss"]) {
+    for (const name of ["ctgov", "gdelt", "press-rss", "prnewswire", "openfda", "pubmed", "sebi-rss"]) {
       expect(byName[name].docsFetched).toBe(0);
       expect(byName[name].eventsCreated).toBe(0);
     }

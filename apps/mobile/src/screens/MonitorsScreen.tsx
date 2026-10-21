@@ -6,7 +6,7 @@ import { getApiClient } from "../api";
 import { Card, Chip, EmptyView, ErrorView, LoadingView, PrimaryButton, Screen } from "../components/Ui";
 import { colors, fontSize, radius, spacing } from "../theme";
 
-const COUNTRIES = ["Any", "India", "United States", "United Kingdom", "Netherlands", "Hong Kong"] as const;
+const COUNTRIES = ["Any", "India", "United States"] as const;
 const EVENT_TYPES = [
   { label: "Any event", value: "" },
   { label: "Trial results", value: "clinical_trial_result" },

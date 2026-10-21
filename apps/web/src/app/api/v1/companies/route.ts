@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  listCompanies,
-  listCompaniesByCountryPage,
-  listGlobalCompaniesPage,
-  listIndianCompaniesPage,
-} from "@biocatalyst/data";
+import { listCompanies, listGlobalCompaniesPage, listIndianCompaniesPage } from "@biocatalyst/data";
 
 /**
  * GET /v1/companies?scope= — company directory for mobile clients.
@@ -13,19 +8,6 @@ import {
  */
 export async function GET(req: NextRequest) {
   const scope = req.nextUrl.searchParams.get("scope");
-  if (scope === "country") {
-    const limit = Number.parseInt(req.nextUrl.searchParams.get("limit") ?? "50", 10);
-    const page = await listCompaniesByCountryPage({
-      country: req.nextUrl.searchParams.get("country") ?? "",
-      limit: Number.isFinite(limit) ? limit : 50,
-      cursor: req.nextUrl.searchParams.get("cursor"),
-      query: req.nextUrl.searchParams.get("q") ?? "",
-    });
-    return NextResponse.json(
-      { ...page, items: page.items.map(compactCompany) },
-      { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" } },
-    );
-  }
   if (scope === "global") {
     const limit = Number.parseInt(req.nextUrl.searchParams.get("limit") ?? "50", 10);
     const page = await listGlobalCompaniesPage({

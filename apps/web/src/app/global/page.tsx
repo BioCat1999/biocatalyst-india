@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listCompaniesByCountryPage, listGlobalCompaniesPage } from "@biocatalyst/data";
+import { listGlobalCompaniesPage } from "@biocatalyst/data";
 import { FollowButton } from "@/components/FollowButton";
 
 export const dynamic = "force-dynamic";
@@ -13,17 +13,11 @@ export const dynamic = "force-dynamic";
 export default async function GlobalPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cursor?: string; q?: string; country?: string }>;
+  searchParams: Promise<{ cursor?: string; q?: string }>;
 }) {
   const params = await searchParams;
   const query = params.q?.trim() ?? "";
-  const country = params.country?.trim() ?? "";
-  const page = country ? await listCompaniesByCountryPage({
-    country,
-    limit: 50,
-    cursor: params.cursor,
-    query,
-  }) : await listGlobalCompaniesPage({
+  const page = await listGlobalCompaniesPage({
     limit: 50,
     cursor: params.cursor,
     query,
@@ -34,7 +28,6 @@ export default async function GlobalPage({
   const pageHref = (cursor: number | string) => {
     const values = new URLSearchParams();
     if (query) values.set("q", query);
-    if (country) values.set("country", country);
     if (String(cursor) !== "0") values.set("cursor", String(cursor));
     const suffix = values.toString();
     return suffix ? `/global?${suffix}` : "/global";
@@ -52,7 +45,6 @@ export default async function GlobalPage({
       </div>
 
       <form action="/global" method="get" className="search-form" style={{ marginBottom: 16 }}>
-        {country && <input type="hidden" name="country" value={country} />}
         <input
           type="search"
           name="q"
@@ -62,16 +54,6 @@ export default async function GlobalPage({
           style={{ width: "100%", padding: "12px 14px", borderRadius: 10 }}
         />
       </form>
-
-      <nav aria-label="Regions" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
-        {["", "United States", "United Kingdom", "Netherlands", "Hong Kong"].map((value) => {
-          const label = value || "All";
-          const values = new URLSearchParams();
-          if (value) values.set("country", value);
-          if (query) values.set("q", query);
-          return <Link key={label} className={`chip ${country === value ? "active" : ""}`} href={`/global${values.size ? `?${values}` : ""}`}>{label}</Link>;
-        })}
-      </nav>
 
       <div style={{ paddingBottom: 48 }}>
         {companies.length === 0 && (

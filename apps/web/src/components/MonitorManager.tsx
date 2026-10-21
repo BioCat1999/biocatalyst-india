@@ -13,7 +13,7 @@ interface Monitor {
   phases: string[];
 }
 
-const COUNTRIES = ["", "India", "United States", "United Kingdom", "Netherlands", "Hong Kong"];
+const COUNTRIES = ["", "India", "United States"];
 const EVENT_TYPES = [
   ["", "Any catalyst"],
   ["clinical_trial_result", "Trial results"],
