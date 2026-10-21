@@ -10,19 +10,23 @@ export default function PrivacyPage() {
   return (
     <article className="panel" style={{ maxWidth: 760 }}>
       <h1>Privacy Policy</h1>
-      <p className="muted">Last updated: 2026-09-30. Biocatalyst India is an informational product — not medical advice and not investment advice.</p>
+      <p className="muted">Last updated: 2026-10-21. Biocatalyst India is an informational product — not medical advice and not investment advice.</p>
 
       <h2>What we collect and why</h2>
       <ul>
         <li>
           <strong>Account details</strong> (only if you sign up): an email address
           and a password hash, used solely to sign you in so you can keep a
-          watchlist and receive in-app alerts. Anonymous users can browse the
+          watchlist, monitors, saved research and alerts. Anonymous users can browse the
           feed and all public pages without an account.
         </li>
         <li>
           <strong>Watchlist and alerts</strong>: the companies and drugs you
           follow, so we can show them back to you and generate your alerts.
+        </li>
+        <li>
+          <strong>Research workspace</strong>: saved events, reading history,
+          monitor filters and private notes you choose to store in your account.
         </li>
         <li>
           <strong>Issue reports</strong>: if you use “Report an issue with this
@@ -34,8 +38,8 @@ export default function PrivacyPage() {
           <strong>Device push tokens</strong> (mobile app, only if you enable
           notifications): the token your device issues is stored on your
           device and registered with our server so we can send you alerts
-          about the companies, drugs and trials you follow. It is never sent
-          to any third party.
+          about the companies, drugs and trials you follow. Push delivery is
+          routed through Expo and the platform push service (Google FCM or Apple APNs).
         </li>
         <li>
           <strong>Server logs</strong>: requests carry your IP address, which is
@@ -69,7 +73,8 @@ export default function PrivacyPage() {
           retained in an anonymised audit trail (contact details removed).
         </li>
         <li>
-          Account data (watchlists, alerts, credentials, device push tokens):
+          Account data (watchlists, monitors, saved research, notes, alerts,
+          credentials and device push tokens):
           kept while your account exists. Deleting your account removes them.
         </li>
       </ul>

@@ -36,10 +36,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Trigger prnewswire ingestion (single source)
+      - name: Trigger high-signal ingestion and deliver alerts
         run: |
-          curl --fail-with-body -sS --retry 2 --retry-all-errors --max-time 600 -X POST \
-            "https://biocatalyst-india.vercel.app/api/v1/admin/ingestion/run?source=prnewswire" \
+          for source in prnewswire gdelt; do
+            curl --fail-with-body -sS --retry 2 --retry-all-errors --max-time 600 -X POST \
+              "https://biocatalyst-india.vercel.app/api/v1/admin/ingestion/run?source=${source}" \
+              -H "Authorization: Bearer ${{ secrets.ADMIN_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d '{}'
+          done
+          curl --fail-with-body -sS --retry 2 --retry-all-errors --max-time 120 -X POST \
+            "https://biocatalyst-india.vercel.app/api/v1/admin/notifications/deliver" \
             -H "Authorization: Bearer ${{ secrets.ADMIN_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{}'

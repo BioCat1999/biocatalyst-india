@@ -31,6 +31,7 @@ import { PrNewswireAdapter } from "./adapters/prnewswire.js";
 import { OpenFdaAdapter } from "./adapters/fda.js";
 import { PubmedAdapter } from "./adapters/pubmed-live.js";
 import { SebiRssAdapter } from "./adapters/sebi.js";
+import { EmaRssAdapter, MhraRssAdapter } from "./adapters/regulatory-rss.js";
 import { runIngestion, type IngestionMetrics } from "./run.js";
 
 export const ADAPTER_FACTORIES: Record<string, () => SourceAdapter> = {
@@ -44,6 +45,8 @@ export const ADAPTER_FACTORIES: Record<string, () => SourceAdapter> = {
   openfda: () => new OpenFdaAdapter(),
   pubmed: () => new PubmedAdapter(),
   "sebi-rss": () => new SebiRssAdapter(),
+  "mhra-rss": () => new MhraRssAdapter(),
+  "ema-rss": () => new EmaRssAdapter(),
 };
 
 /** Registered source names, in run order. */

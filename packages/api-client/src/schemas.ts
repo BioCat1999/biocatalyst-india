@@ -43,9 +43,9 @@ export const authUserSchema = z.object({
 export type AuthUserProfile = z.infer<typeof authUserSchema>;
 
 const securitySchema = z.object({
-  exchange: z.enum(["NSE", "BSE", "NYSE", "NASDAQ", "LSE", "EPA", "XETRA", "SWX", "TSE"]),
+  exchange: z.enum(["NSE", "BSE", "NYSE", "NASDAQ", "LSE", "EPA", "XETRA", "SWX", "TSE", "AMS", "EBR", "HKEX"]),
   ticker: z.string(),
-  currency: z.enum(["INR", "USD", "CHF", "EUR", "GBP", "JPY"]),
+  currency: z.enum(["INR", "USD", "CHF", "EUR", "GBP", "JPY", "HKD"]),
   isin: z.string().optional(),
 });
 
@@ -64,7 +64,7 @@ const marketReactionSchema = z.object({
   windowStart: z.string().nullable(),
   windowEnd: z.string().nullable(),
   securityTicker: z.string(),
-  exchange: z.enum(["NSE", "BSE", "NYSE", "NASDAQ", "LSE", "EPA", "XETRA", "SWX", "TSE"]),
+  exchange: z.enum(["NSE", "BSE", "NYSE", "NASDAQ", "LSE", "EPA", "XETRA", "SWX", "TSE", "AMS", "EBR", "HKEX"]),
   priceBefore: z.number().nullable(),
   priceAfter: z.number().nullable(),
   pctChange: z.number().nullable(),
@@ -323,6 +323,24 @@ export const companyListResponseSchema = z.object({
 });
 export type CompanyListResponse = z.infer<typeof companyListResponseSchema>;
 
+/* ---------- unified catalyst calendar ---------- */
+
+export const calendarResponseSchema = z.object({
+  generatedAt: isoDate,
+  items: z.array(z.object({
+    id: z.string(),
+    kind: z.string(),
+    date: isoDate,
+    title: z.string(),
+    detail: z.string(),
+    status: z.enum(["confirmed", "estimated", "completed", "cancelled"]),
+    sourceUrl: z.string(),
+    country: z.string().nullable(),
+    company: z.object({ slug: z.string(), canonicalName: z.string() }).nullable(),
+  })),
+});
+export type CalendarResponse = z.infer<typeof calendarResponseSchema>;
+
 /* ---------- global links ---------- */
 
 export const globalLinkSchema = z.object({
@@ -438,6 +456,37 @@ export const watchlistResponseSchema = z.object({
   items: z.array(watchlistItemSchema),
 });
 export type WatchlistResponse = z.infer<typeof watchlistResponseSchema>;
+
+export const monitorRuleSchema = z.object({
+  id: uuidOrId,
+  name: z.string(),
+  keyword: z.string().nullable(),
+  eventTypes: z.array(z.string()),
+  countries: z.array(z.string()),
+  indications: z.array(z.string()),
+  phases: z.array(z.string()),
+  enabled: z.boolean(),
+  createdAt: isoDate,
+});
+export type MonitorRule = z.infer<typeof monitorRuleSchema>;
+export const monitorListResponseSchema = z.object({ items: z.array(monitorRuleSchema) });
+export type MonitorListResponse = z.infer<typeof monitorListResponseSchema>;
+
+export const eventStateSchema = z.object({
+  saved: z.boolean(),
+  note: z.string(),
+  firstReadAt: z.string().nullable(),
+  lastReadAt: z.string().nullable(),
+});
+export type EventState = z.infer<typeof eventStateSchema>;
+
+export const libraryResponseSchema = z.object({
+  items: z.array(z.object({
+    id: z.string(), headline: z.string(), eventType: z.string(), occurredAt: isoDate,
+    savedAt: z.string().nullable(), lastReadAt: z.string().nullable(), note: z.string(),
+  })),
+});
+export type LibraryResponse = z.infer<typeof libraryResponseSchema>;
 
 export const watchlistCreateResponseSchema = watchlistItemSchema.extend({
   alreadyFollowed: z.boolean().optional(),

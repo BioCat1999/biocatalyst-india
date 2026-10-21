@@ -35,6 +35,7 @@ import {
   companyDetailSchema,
   companyEventsSchema,
   companyListResponseSchema,
+  calendarResponseSchema,
   drugDetailSchema,
   globalLinksResponseSchema,
   healthSchema,
@@ -52,10 +53,15 @@ import {
   trialSchema,
   watchlistCreateResponseSchema,
   watchlistResponseSchema,
+  monitorListResponseSchema,
+  monitorRuleSchema,
+  eventStateSchema,
+  libraryResponseSchema,
   type AlertListResponse,
   type AuthUserProfile,
   type CompanyDetail,
   type CompanyListResponse,
+  type CalendarResponse,
   type CompanyPatentsResponse,
   type DrugDetail,
   type GlobalLinksResponse,
@@ -67,6 +73,10 @@ import {
   type SearchResults,
   type TrialDetail,
   type WatchlistResponse,
+  type MonitorListResponse,
+  type MonitorRule,
+  type EventState,
+  type LibraryResponse,
 } from "./schemas.js";
 
 export interface ApiClientOptions {
@@ -324,6 +334,20 @@ export class ApiClient {
     });
   }
 
+  getEventState(id: string): Promise<EventState> {
+    return this.request(`/api/v1/events/${encodeURIComponent(id)}/state`, { schema: eventStateSchema });
+  }
+
+  updateEventState(id: string, input: { saved?: boolean; note?: string | null; markRead?: boolean }): Promise<EventState> {
+    return this.request(`/api/v1/events/${encodeURIComponent(id)}/state`, {
+      method: "PUT", body: input, schema: eventStateSchema,
+    });
+  }
+
+  getLibrary(mode: "saved" | "history" = "saved"): Promise<LibraryResponse> {
+    return this.request(this.url("/api/v1/library", { mode }), { schema: libraryResponseSchema });
+  }
+
   getCompany(slug: string): Promise<CompanyDetail> {
     return this.request(this.url(`/api/v1/companies/${encodeURIComponent(slug)}`), {
       schema: companyDetailSchema,
@@ -374,16 +398,26 @@ export class ApiClient {
     return this.request("/api/v1/insights", { schema: insightsSchema });
   }
 
+  /** Unified upcoming trial, regulatory, patent and corporate milestones. */
+  getCalendar(options?: { country?: string; kind?: string; limit?: number }): Promise<CalendarResponse> {
+    return this.request(this.url("/api/v1/calendar", {
+      ...(options?.country ? { country: options.country } : {}),
+      ...(options?.kind ? { kind: options.kind } : {}),
+      ...(options?.limit ? { limit: options.limit } : {}),
+    }), { schema: calendarResponseSchema });
+  }
+
   /** Company directory. scope=global → non-Indian majors; scope=india → Indian catalog; omit → all. */
   listCompanies(
-    scope?: "global" | "india",
-    options?: { limit?: number; cursor?: string; query?: string },
+    scope?: "global" | "india" | "country",
+    options?: { limit?: number; cursor?: string; query?: string; country?: string },
   ): Promise<CompanyListResponse> {
     return this.request(this.url("/api/v1/companies", {
       ...(scope ? { scope } : {}),
       ...(options?.limit ? { limit: options.limit } : {}),
       ...(options?.cursor ? { cursor: options.cursor } : {}),
       ...(options?.query ? { q: options.query } : {}),
+      ...(options?.country ? { country: options.country } : {}),
     }), {
       schema: companyListResponseSchema,
     });
@@ -441,6 +475,29 @@ export class ApiClient {
     );
   }
 
+  listMonitors(): Promise<MonitorListResponse> {
+    return this.request("/api/v1/monitors", { schema: monitorListResponseSchema });
+  }
+
+  createMonitor(input: {
+    name: string;
+    keyword?: string;
+    eventTypes?: string[];
+    countries?: string[];
+    indications?: string[];
+    phases?: string[];
+  }): Promise<MonitorRule> {
+    return this.request("/api/v1/monitors", {
+      method: "POST",
+      body: input,
+      schema: monitorRuleSchema,
+    });
+  }
+
+  async deleteMonitor(id: string): Promise<void> {
+    await this.request(`/api/v1/monitors/${encodeURIComponent(id)}`, { method: "DELETE", schema: okResponseSchema });
+  }
+
   /* ---------- alerts (auth required) ---------- */
 
   listAlerts(): Promise<AlertListResponse> {
@@ -461,16 +518,7 @@ export class ApiClient {
     });
   }
 
-  /**
-   * Push-token registration PLUMBING (Milestone 9 scope).
-   *
-   * Attempts to register a native push token against the API backend. The
-   * backend does not expose `/api/v1/push-tokens` yet (planned for a later
-   * milestone), so a 404 is tolerated and reported as `{ registered: false }`
-   * — the token is still kept in local storage by the mobile app. No
-   * third-party push service is contacted here; the target is always the
-   * user's own API base URL.
-   */
+  /** Register an Expo push token for durable server-side alert delivery. */
   async registerPushToken(token: string): Promise<{ registered: boolean }> {
     try {
       await this.request("/api/v1/push-tokens", {

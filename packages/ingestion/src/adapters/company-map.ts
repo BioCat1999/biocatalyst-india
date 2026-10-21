@@ -265,6 +265,15 @@ export const NEWS_PHRASES: string[] = [
  * Canonical names match packages/data/src/global-companies.ts verbatim.
  */
 const GLOBAL_COMPANIES: NameMatcher[] = [
+  { canonical: "Hikma Pharmaceuticals PLC", keys: ["hikma pharmaceuticals", "hikma"] },
+  { canonical: "Indivior PLC", keys: ["indivior"] },
+  { canonical: "Pharming Group N.V.", keys: ["pharming group", "pharming"] },
+  { canonical: "ProQR Therapeutics N.V.", keys: ["proqr therapeutics", "proqr"] },
+  { canonical: "uniQure N.V.", keys: ["uniqure"] },
+  { canonical: "Sino Biopharmaceutical Limited", keys: ["sino biopharmaceutical", "sino biopharm"] },
+  { canonical: "CSPC Pharmaceutical Group Limited", keys: ["cspc pharmaceutical", "cspc"] },
+  { canonical: "WuXi Biologics (Cayman) Inc.", keys: ["wuxi biologics"] },
+  { canonical: "Innovent Biologics, Inc.", keys: ["innovent biologics", "innovent"] },
   { canonical: "Pfizer Inc", keys: ["pfizer inc", "pfizer incorporated", "pfizer"] },
   { canonical: "Johnson & Johnson", keys: ["johnson & johnson", "johnson and johnson", "j&j"] },
   { canonical: "Merck & Co., Inc.", keys: ["merck & co", "merck and co", "merck sharp", "msd", "merck"] },
@@ -302,6 +311,15 @@ const IPO_COMPANIES: NameMatcher[] = [
  * stays tight; the adapter OR-joins each list independently.
  */
 export const GLOBAL_NEWS_PHRASES: string[] = [
+  "Hikma Pharmaceuticals",
+  "Indivior",
+  "Pharming Group",
+  "ProQR Therapeutics",
+  "uniQure",
+  "Sino Biopharmaceutical",
+  "CSPC Pharmaceutical",
+  "WuXi Biologics",
+  "Innovent Biologics",
   "Pfizer",
   "Johnson & Johnson",
   "Merck",

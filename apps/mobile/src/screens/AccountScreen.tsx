@@ -19,7 +19,7 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
-export function AccountScreen(_props: Props) {
+export function AccountScreen({ navigation }: Props) {
   const { user, initializing, busy, signOut, deleteAccount } = useAuth();
 
   const confirmDeleteAccount = useCallback(() => {
@@ -97,6 +97,12 @@ export function AccountScreen(_props: Props) {
             <Text style={styles.body}>Connected securely</Text>
           </View>
           <Text style={styles.endpoint} numberOfLines={1}>{API_URL}</Text>
+        </Card>
+        <SectionTitle>Research</SectionTitle>
+        <Card>
+          <PrimaryButton label="Saved articles and history" onPress={() => navigation.navigate("Library")} />
+          <PrimaryButton label="Smart monitors" onPress={() => navigation.navigate("Monitors")} />
+          <PrimaryButton label="Catalyst calendar" onPress={() => navigation.navigate("Calendar")} />
         </Card>
         <View style={{ height: spacing.xl }} />
       </ScrollView>

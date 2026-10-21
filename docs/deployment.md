@@ -202,17 +202,17 @@ remote push (removed from Expo Go on SDK 53).
 
 **What the user must provide for working push notifications
 (Milestone 10 server work + credentials):**
-1. Backend: implement `POST /api/v1/push-tokens` and the alert→push
-   fan-out in `apps/web` (currently the mobile stub tolerates 404).
+1. Backend: deploy migrations `017_notification_outbox.sql` and the current
+   web release. Token registration, alert fan-out, retryable outbox and the
+   delivery endpoint are implemented.
 2. Android: Firebase Cloud Messaging credential (service-account JSON or
    legacy server key) wired into the native project
    (`google-services.json` via config plugin).
 3. iOS: APNs key (`.p8`) or certificate from the Apple Developer
    account, configured for the app's bundle id.
-4. Relay choice: send directly from the user's server via FCM/APNs
-   (keeps the no-third-party rule) **or** use Expo Push Service, which
-   additionally needs an Expo account + `projectId` in `app.json` and
-   routes notifications through Expo's servers.
+4. Expo relay: set `EXPO_PUBLIC_EAS_PROJECT_ID` for the mobile build. The
+   implemented outbox routes notifications through Expo Push Service and
+   then FCM/APNs.
 5. Test on a physical device via a development build — simulators and
    Expo Go cannot receive remote pushes.
 

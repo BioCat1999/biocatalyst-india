@@ -58,6 +58,7 @@ import {
   contentHash,
   eventFingerprint,
 } from "../normalize.js";
+import { extractRegulatoryMilestones } from "../milestones.js";
 import { matchCompanyNameBounded, matchDrugNameBounded } from "./company-map.js";
 import { fetchText } from "./http.js";
 import { classifyPressRelease, parseRss } from "./rss.js";
@@ -233,6 +234,10 @@ export class PrNewswireAdapter implements SourceAdapter {
           entityKey: company,
         }),
         rawSnapshot: raw,
+        calendarMilestones: extractRegulatoryMilestones(
+          `${raw.title} ${raw.description ?? ""}`,
+          company,
+        ),
       },
     ];
   }

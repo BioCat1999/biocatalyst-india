@@ -806,6 +806,46 @@ export interface GlobalCompanyPage {
   nextCursor: string | null;
 }
 
+/** A bounded directory page for one exact headquarters country. */
+export async function listCompaniesByCountryPage(options: {
+  country: string;
+  limit?: number;
+  cursor?: string | null;
+  query?: string;
+}): Promise<GlobalCompanyPage> {
+  const limit = Math.min(100, Math.max(1, options.limit ?? 50));
+  const parsedOffset = Number.parseInt(options.cursor ?? "0", 10);
+  const offset = Number.isFinite(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0;
+  const query = options.query?.trim().slice(0, 100) ?? "";
+  const country = options.country.trim().slice(0, 100);
+  if (!country) return { items: [], total: 0, nextCursor: null };
+  const { rows } = await getPool().query<CompanyDirectoryRow & { total_count: string }>(
+    `SELECT c.id::text AS id, c.canonical_name, c.slug, c.description,
+            c.country, c.website, count(*) OVER ()::text AS total_count,
+            COALESCE(
+              (SELECT jsonb_agg(jsonb_build_object(
+                 'exchange', s.exchange, 'ticker', s.ticker,
+                 'currency', s.currency, 'isin', s.isin
+               ) ORDER BY s.exchange)
+                 FROM securities s WHERE s.company_id = c.id),
+              '[]'::jsonb
+            ) AS securities,
+            '[]'::jsonb AS aliases
+       FROM companies c
+      WHERE c.country = $1
+        AND ($2 = '' OR c.canonical_name ILIKE $3)
+      ORDER BY c.canonical_name, c.id
+      LIMIT $4 OFFSET $5`,
+    [country, query, `%${query}%`, limit, offset],
+  );
+  const total = Number(rows[0]?.total_count ?? 0);
+  return {
+    items: rows.map((row) => mapCompany(row, row.securities.map(toSecurity), [])),
+    total,
+    nextCursor: offset + rows.length < total ? String(offset + rows.length) : null,
+  };
+}
+
 /** A bounded global directory page, suitable for mobile and server rendering. */
 export async function listGlobalCompaniesPage(options: {
   limit?: number;
@@ -1097,6 +1137,84 @@ export async function getUpcomingTrials(limit = 50): Promise<Trial[]> {
     [Math.min(Math.max(limit, 1), 200)],
   );
   return hydrateTrials(rows);
+}
+
+export interface CatalystCalendarItem {
+  id: string;
+  kind: string;
+  date: string;
+  title: string;
+  detail: string;
+  status: "confirmed" | "estimated" | "completed" | "cancelled";
+  sourceUrl: string;
+  country: string | null;
+  company: { slug: string; canonicalName: string } | null;
+}
+
+interface CatalystCalendarRow {
+  id: string;
+  kind: string;
+  date: string;
+  title: string;
+  detail: string;
+  status: CatalystCalendarItem["status"];
+  source_url: string;
+  company_slug: string | null;
+  company_name: string | null;
+  country: string | null;
+}
+
+/** Unified forward calendar backed by canonical trials, patents and milestones. */
+export async function getCatalystCalendar(options: {
+  limit?: number;
+  country?: string;
+  kind?: string;
+} = {}): Promise<CatalystCalendarItem[]> {
+  const limit = Math.min(250, Math.max(1, options.limit ?? 100));
+  const country = options.country?.trim().slice(0, 100) ?? "";
+  const kind = options.kind?.trim().slice(0, 50) ?? "";
+  const { rows } = await getPool().query<CatalystCalendarRow>(
+    `WITH calendar AS (
+       SELECT 'trial:' || t.id::text AS id, 'trial_completion'::text AS kind,
+              t.primary_completion_date::text AS date, t.title,
+              CONCAT_WS(' · ', t.phase, t.registry_trial_id, t.status) AS detail,
+              'estimated'::text AS status, t.source_url,
+              c.slug AS company_slug, c.canonical_name AS company_name, c.country
+         FROM trials t LEFT JOIN companies c ON c.id = t.sponsor_company_id
+        WHERE t.primary_completion_date >= CURRENT_DATE
+       UNION ALL
+       SELECT 'patent:' || p.id::text, 'patent_expiry', p.expiry_date::text,
+              CONCAT(p.trade_name, ' patent expiry'),
+              CONCAT_WS(' · ', 'US ' || p.patent_number, p.active_ingredient),
+              'confirmed', 'https://www.accessdata.fda.gov/scripts/cder/ob/',
+              c.slug, c.canonical_name, c.country
+         FROM patents p LEFT JOIN companies c ON c.id = p.company_id
+        WHERE p.delisted = false AND p.expiry_date >= CURRENT_DATE
+       UNION ALL
+       SELECT 'milestone:' || m.id::text, m.kind, m.event_date::text,
+              m.title, m.detail, m.status, m.source_url,
+              c.slug, c.canonical_name, COALESCE(NULLIF(m.country, ''), c.country)
+         FROM catalyst_milestones m LEFT JOIN companies c ON c.id = m.company_id
+        WHERE m.event_date >= CURRENT_DATE AND m.status <> 'cancelled'
+     )
+     SELECT * FROM calendar
+      WHERE ($1 = '' OR country = $1) AND ($2 = '' OR kind = $2)
+      ORDER BY date, kind, title LIMIT $3`,
+    [country, kind, limit],
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    kind: row.kind,
+    date: row.date,
+    title: row.title,
+    detail: row.detail,
+    status: row.status,
+    sourceUrl: row.source_url,
+    country: row.country,
+    company: row.company_slug && row.company_name
+      ? { slug: row.company_slug, canonicalName: row.company_name }
+      : null,
+  }));
 }
 
 export interface CompanyMarketMove {

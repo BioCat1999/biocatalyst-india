@@ -73,6 +73,100 @@ interface ResolvedEntities {
   unresolved: boolean;
 }
 
+async function upsertTrialRecord(pool: Pool, c: NormalizedCandidate): Promise<void> {
+  const record = c.trialRecord;
+  if (!record) return;
+
+  const sponsorId = record.sponsorCompanyName
+    ? await resolveNamed(pool, "companies", "company_aliases", "company_id", record.sponsorCompanyName)
+    : null;
+  const { rows } = await pool.query<{ id: string }>(
+    `INSERT INTO trials (
+       registry, registry_trial_id, title, phase, status, enrollment,
+       sponsor_company_id, start_date, primary_completion_date, source_url,
+       primary_endpoints
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7::uuid,$8::date,$9::date,$10,$11::text[])
+     ON CONFLICT (registry, registry_trial_id) DO UPDATE SET
+       title = EXCLUDED.title,
+       phase = COALESCE(EXCLUDED.phase, trials.phase),
+       status = COALESCE(EXCLUDED.status, trials.status),
+       enrollment = COALESCE(EXCLUDED.enrollment, trials.enrollment),
+       sponsor_company_id = COALESCE(EXCLUDED.sponsor_company_id, trials.sponsor_company_id),
+       start_date = COALESCE(EXCLUDED.start_date, trials.start_date),
+       primary_completion_date = COALESCE(EXCLUDED.primary_completion_date, trials.primary_completion_date),
+       source_url = EXCLUDED.source_url,
+       primary_endpoints = CASE
+         WHEN cardinality(EXCLUDED.primary_endpoints) > 0 THEN EXCLUDED.primary_endpoints
+         ELSE trials.primary_endpoints
+       END
+     RETURNING id::text AS id`,
+    [
+      record.registry,
+      record.registryTrialId,
+      record.title,
+      record.phase,
+      record.status,
+      record.enrollment,
+      sponsorId,
+      record.startDate,
+      record.primaryCompletionDate,
+      record.sourceUrl,
+      record.primaryEndpoints,
+    ],
+  );
+  const trialId = rows[0]?.id;
+  if (!trialId) throw new Error("ingestion: trial upsert returned no id");
+
+  for (const name of record.indications) {
+    const clean = name.trim().slice(0, 300);
+    if (!clean) continue;
+    const indication = await pool.query<{ id: string }>(
+      `INSERT INTO indications (canonical_name) VALUES ($1)
+       ON CONFLICT (canonical_name) DO UPDATE SET canonical_name = EXCLUDED.canonical_name
+       RETURNING id::text AS id`,
+      [clean],
+    );
+    await pool.query(
+      `INSERT INTO trial_indications (trial_id, indication_id)
+       VALUES ($1::uuid,$2::uuid) ON CONFLICT DO NOTHING`,
+      [trialId, indication.rows[0].id],
+    );
+  }
+
+  for (const name of record.drugNames) {
+    const drugId = await resolveNamed(pool, "drugs", "drug_aliases", "drug_id", name);
+    if (!drugId) continue;
+    await pool.query(
+      `INSERT INTO trial_drugs (trial_id, drug_id, role)
+       VALUES ($1::uuid,$2::uuid,'intervention')
+       ON CONFLICT (trial_id, drug_id) DO UPDATE SET role = EXCLUDED.role`,
+      [trialId, drugId],
+    );
+  }
+}
+
+async function upsertCalendarMilestones(
+  pool: Pool,
+  c: NormalizedCandidate,
+  entities: ResolvedEntities,
+): Promise<void> {
+  for (const milestone of c.calendarMilestones ?? []) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(milestone.date)) continue;
+    await pool.query(
+      `INSERT INTO catalyst_milestones
+         (kind, event_date, title, detail, company_id, country, source_url, status)
+       VALUES ($1,$2::date,$3,$4,$5::uuid,$6,$7,$8)
+       ON CONFLICT (kind, event_date, source_url) DO UPDATE SET
+         title = EXCLUDED.title, detail = EXCLUDED.detail,
+         company_id = COALESCE(EXCLUDED.company_id, catalyst_milestones.company_id),
+         country = COALESCE(NULLIF(EXCLUDED.country, ''), catalyst_milestones.country),
+         status = EXCLUDED.status, updated_at = now()`,
+      [milestone.kind, milestone.date, milestone.title, milestone.detail,
+        entities.companyIds[0] ?? null, milestone.country ?? "", c.canonicalUrl, milestone.status],
+    );
+  }
+}
+
 async function resolveTrial(pool: Pool, registry: string, registryTrialId: string): Promise<string | null> {
   const { rows } = await pool.query<{ id: string }>(
     "SELECT id::text AS id FROM trials WHERE registry = $1 AND registry_trial_id = $2",
@@ -396,6 +490,7 @@ export async function runIngestion(pool: Pool, adapter: SourceAdapter): Promise<
             continue;
           }
           const c = candidate;
+          await upsertTrialRecord(pool, c);
           const entities = await resolveEntities(pool, c);
           const hasRefs =
             c.trialRefs.length > 0 || c.companyNames.length > 0 || c.drugNames.length > 0;
@@ -416,6 +511,7 @@ export async function runIngestion(pool: Pool, adapter: SourceAdapter): Promise<
             [c.fingerprint],
           );
           const stored = await storeCandidate(pool, c, entities, extraction);
+          await upsertCalendarMilestones(pool, c, entities);
           if (stored.merged) {
             metrics.eventsMerged += 1; // M7: absorbed into an existing event
           } else if (before.rows[0].n === 0) {

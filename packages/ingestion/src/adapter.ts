@@ -77,6 +77,36 @@ export interface NormalizedCandidate {
   crossSourceKey?: string | null;
   /** Verbatim raw record for the snapshot store. */
   rawSnapshot: unknown;
+  /**
+   * Optional canonical trial snapshot carried by registry adapters. The
+   * ingestion runner upserts this before resolving `trialRefs`, so a newly
+   * discovered registry record can immediately power pipeline pages,
+   * calendars and event-to-trial links instead of requiring a separate sync.
+   */
+  trialRecord?: {
+    registry: string;
+    registryTrialId: string;
+    title: string;
+    phase: string | null;
+    status: string | null;
+    enrollment: number | null;
+    sponsorCompanyName: string | null;
+    startDate: string | null;
+    primaryCompletionDate: string | null;
+    sourceUrl: string;
+    primaryEndpoints: string[];
+    indications: string[];
+    drugNames: string[];
+  };
+  /** Exact future dates stated by an attributable source. */
+  calendarMilestones?: Array<{
+    kind: "pdufa" | "advisory_committee" | "regulatory_decision" | "trial_readout" | "conference" | "earnings" | "ipo" | "other";
+    date: string;
+    title: string;
+    detail: string;
+    status: "confirmed" | "estimated";
+    country?: string;
+  }>;
 }
 
 export interface SourceAdapter {

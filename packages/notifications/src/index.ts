@@ -82,7 +82,7 @@ export async function generateAlertsForEvent(
   }
 
   const { rows } = await pool.query<{ created: number }>(
-    `WITH followers AS (
+    `WITH watchlist_followers AS (
        SELECT DISTINCT w.user_id
        FROM watchlist_items w
        JOIN event_entities ee
@@ -90,6 +90,26 @@ export async function generateAlertsForEvent(
         AND ee.entity_id = w.entity_id
        WHERE ee.event_id = $1::uuid
          AND ee.entity_type IN ('company', 'drug')
+     ), monitor_followers AS (
+       SELECT DISTINCT m.user_id
+         FROM monitor_rules m
+         JOIN events e ON e.id = $1::uuid
+        WHERE m.enabled
+          AND (m.keyword IS NULL OR CONCAT_WS(' ', e.headline, e.factual_summary, e.catalyst_summary, e.indication) ILIKE '%' || m.keyword || '%')
+          AND (cardinality(m.event_types) = 0 OR e.event_type = ANY(m.event_types))
+          AND (cardinality(m.indications) = 0 OR e.indication = ANY(m.indications))
+          AND (cardinality(m.phases) = 0 OR e.phase = ANY(m.phases))
+          AND (cardinality(m.countries) = 0 OR EXISTS (
+            SELECT 1 FROM event_entities country_ee
+            JOIN companies country_company ON country_company.id = country_ee.entity_id
+            WHERE country_ee.event_id = e.id
+              AND country_ee.entity_type = 'company'
+              AND country_company.country = ANY(m.countries)
+          ))
+     ), followers AS (
+       SELECT user_id FROM watchlist_followers
+       UNION
+       SELECT user_id FROM monitor_followers
      )
      INSERT INTO alerts (user_id, event_id, channel, status, delivered_at)
      SELECT f.user_id, $1::uuid, $2, 'delivered', now()
@@ -99,7 +119,102 @@ export async function generateAlertsForEvent(
     [eventId, CHANNEL_IN_APP],
   );
   const created = rows.length;
+  // Durable outbox: only users with an Expo token are queued. Delivery is
+  // performed by a separate worker so provider latency never blocks ingest.
+  await pool.query(
+    `INSERT INTO notification_outbox (alert_id, user_id, event_id)
+     SELECT DISTINCT a.id, a.user_id, a.event_id
+       FROM alerts a
+       JOIN push_tokens p ON p.user_id = a.user_id AND p.platform = 'expo'
+      WHERE a.event_id = $1::uuid AND a.channel = $2
+     ON CONFLICT (alert_id) DO NOTHING`,
+    [eventId, CHANNEL_IN_APP],
+  );
   return created === 0 ? { created, skipped: "no_followers" } : { created };
+}
+
+export interface PushDeliveryResult {
+  claimed: number;
+  delivered: number;
+  failed: number;
+}
+
+/** Deliver one bounded outbox batch through Expo Push Service. */
+export async function deliverPendingPushNotifications(
+  pool: Pool,
+  fetchImpl: typeof fetch = globalThis.fetch,
+  limit = 100,
+): Promise<PushDeliveryResult> {
+  const boundedLimit = Math.min(100, Math.max(1, limit));
+  const { rows } = await pool.query<{
+    id: string; token: string; event_id: string; headline: string;
+  }>(
+    `WITH claimed AS (
+       SELECT o.id
+         FROM notification_outbox o
+        WHERE o.status IN ('pending','failed')
+          AND o.next_attempt <= now() AND o.attempts < 6
+        ORDER BY o.created_at
+        FOR UPDATE SKIP LOCKED
+        LIMIT $1
+     ), updated AS (
+       UPDATE notification_outbox o
+          SET status = 'processing', attempts = attempts + 1, updated_at = now()
+         FROM claimed c WHERE o.id = c.id
+       RETURNING o.id, o.user_id, o.event_id
+     )
+     SELECT u.id::text AS id, p.token, u.event_id::text AS event_id, e.headline
+       FROM updated u
+       JOIN LATERAL (
+         SELECT token FROM push_tokens
+          WHERE user_id = u.user_id AND platform = 'expo'
+          ORDER BY updated_at DESC LIMIT 1
+       ) p ON true
+       JOIN events e ON e.id = u.event_id`,
+    [boundedLimit],
+  );
+  if (rows.length === 0) return { claimed: 0, delivered: 0, failed: 0 };
+
+  try {
+    const response = await fetchImpl("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json", "Accept-Encoding": "gzip, deflate" },
+      body: JSON.stringify(rows.map((row) => ({
+        to: row.token,
+        sound: "default",
+        title: "BioCatalyst alert",
+        body: row.headline.slice(0, 180),
+        data: { eventId: row.event_id },
+      }))),
+    });
+    const payload = await response.json() as { data?: Array<{ status?: string; message?: string }> };
+    if (!response.ok || !Array.isArray(payload.data)) throw new Error(`Expo push HTTP ${response.status}`);
+    let delivered = 0;
+    let failed = 0;
+    for (let index = 0; index < rows.length; index += 1) {
+      const ticket = payload.data[index];
+      const ok = ticket?.status === "ok";
+      delivered += ok ? 1 : 0;
+      failed += ok ? 0 : 1;
+      await pool.query(
+        `UPDATE notification_outbox SET status = $2,
+           next_attempt = CASE WHEN $2 = 'failed' THEN now() + (interval '5 minutes' * attempts) ELSE next_attempt END,
+           last_error = $3, updated_at = now() WHERE id = $1::uuid`,
+        [rows[index].id, ok ? "delivered" : "failed", ok ? null : (ticket?.message ?? "push rejected")],
+      );
+    }
+    return { claimed: rows.length, delivered, failed };
+  } catch (error) {
+    const message = error instanceof Error ? error.message.slice(0, 500) : "push delivery failed";
+    await pool.query(
+      `UPDATE notification_outbox SET status = 'failed',
+         next_attempt = now() + (interval '5 minutes' * attempts),
+         last_error = $2, updated_at = now()
+       WHERE id = ANY($1::uuid[])`,
+      [rows.map((row) => row.id), message],
+    );
+    return { claimed: rows.length, delivered: 0, failed: rows.length };
+  }
 }
 
 export interface ListAlertsOptions {

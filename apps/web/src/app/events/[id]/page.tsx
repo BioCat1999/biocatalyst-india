@@ -13,6 +13,7 @@ import { MarketReactionPanel } from "@/components/MarketReaction";
 import { SourceList } from "@/components/SourceList";
 import { IssueReportForm } from "@/components/IssueReportForm";
 import { FollowButton } from "@/components/FollowButton";
+import { EventWorkspace } from "@/components/EventWorkspace";
 import { formatDateTime } from "@/lib/format";
 import { trialUrl } from "@/lib/urls";
 
@@ -158,6 +159,10 @@ export default async function EventDetail({ params }: { params: Promise<{ id: st
         </div>
 
         <aside>
+          <section className="panel" aria-label="Research workspace">
+            <h2>Research workspace</h2>
+            <EventWorkspace eventId={event.id} />
+          </section>
           {event.marketReaction && (
             <section className="panel" aria-label="Market reaction">
               <h2>Market reaction</h2>

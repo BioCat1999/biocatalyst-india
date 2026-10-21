@@ -61,7 +61,15 @@ describe("CtgovAdapter.normalize", () => {
     expect(c.occurredAt).toBe("2021-06-14T00:00:00.000Z");
     expect(c.headline).toContain("Biocon Ltd");
     expect(c.headline).toContain("NCT04475588");
-    expect(c.trialRefs).toEqual([]);
+    expect(c.trialRefs).toEqual([
+      { registry: "ClinicalTrials.gov", registryTrialId: "NCT04475588" },
+    ]);
+    expect(c.trialRecord).toMatchObject({
+      registry: "ClinicalTrials.gov",
+      registryTrialId: "NCT04475588",
+      sponsorCompanyName: "Biocon Ltd",
+      primaryCompletionDate: "2020-07-07",
+    });
     expect(c.isPrimary).toBe(true);
     expect(c.publisher).toBe("ClinicalTrials.gov");
     expect(c.drugNames).toEqual([]); // "Itolizumab" is not a tracked drug — omitted, never guessed

@@ -4,6 +4,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "./src/auth/AuthContext";
 import { RootNavigator } from "./src/navigation/RootNavigator";
+import { PushRegistration } from "./src/push/PushRegistration";
 
 /**
  * Biocatalyst India — Expo mobile app (Milestone 9).
@@ -16,6 +17,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
+        <PushRegistration />
         <NavigationContainer>
           <RootNavigator />
         </NavigationContainer>

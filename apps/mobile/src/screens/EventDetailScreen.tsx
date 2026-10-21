@@ -4,7 +4,7 @@
  * provider, sources with provenance, confidence + report-an-issue.
  */
 import React from "react";
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { eventTypeLabel } from "@biocatalyst/types";
 import { getApiClient } from "../api";
@@ -31,6 +31,36 @@ export function EventDetailScreen({ route }: Props) {
     () => getApiClient().getEvent(eventId),
     eventId,
   );
+  const [saved, setSaved] = React.useState(false);
+  const [note, setNote] = React.useState("");
+  const [workspaceReady, setWorkspaceReady] = React.useState(false);
+  const [workspaceMessage, setWorkspaceMessage] = React.useState("");
+
+  React.useEffect(() => {
+    if (!event) return;
+    let alive = true;
+    void getApiClient().updateEventState(eventId, { markRead: true })
+      .then((state) => {
+        if (!alive) return;
+        setSaved(state.saved);
+        setNote(state.note);
+        setWorkspaceReady(true);
+      })
+      .catch(() => setWorkspaceReady(false));
+    return () => { alive = false; };
+  }, [event, eventId]);
+
+  const updateWorkspace = React.useCallback(async (input: { saved?: boolean; note?: string }) => {
+    try {
+      const state = await getApiClient().updateEventState(eventId, input);
+      setSaved(state.saved);
+      setNote(state.note);
+      setWorkspaceReady(true);
+      setWorkspaceMessage("Saved");
+    } catch {
+      setWorkspaceMessage("Could not save. Please try again.");
+    }
+  }, [eventId]);
 
   if (loading)
     return (
@@ -59,6 +89,32 @@ export function EventDetailScreen({ route }: Props) {
         <Text style={styles.kicker}>{eventTypeLabel(event.eventType)}</Text>
         <Text style={styles.headline}>{event.headline}</Text>
         <Text style={styles.date}>{formatDate(event.occurredAt)}</Text>
+
+        <SectionTitle>Research workspace</SectionTitle>
+        <Card>
+          <Pressable
+            style={[styles.saveButton, saved && styles.saveButtonActive]}
+            onPress={() => void updateWorkspace({ saved: !saved })}
+          >
+            <Text style={[styles.saveButtonText, saved && styles.saveButtonTextActive]}>
+              {saved ? "★ Saved article" : "☆ Save article"}
+            </Text>
+          </Pressable>
+          <TextInput
+            style={styles.noteInput}
+            multiline
+            maxLength={5000}
+            value={note}
+            onChangeText={setNote}
+            placeholder="Add private research notes…"
+            placeholderTextColor={colors.placeholder}
+          />
+          <Pressable style={styles.noteButton} onPress={() => void updateWorkspace({ note })}>
+            <Text style={styles.noteButtonText}>Save note</Text>
+          </Pressable>
+          {!!workspaceMessage && <Text style={styles.workspaceMessage}>{workspaceMessage}</Text>}
+          {!workspaceReady && <Text style={styles.workspaceMessage}>Workspace syncs when connected.</Text>}
+        </Card>
 
         <SectionTitle>Fact box</SectionTitle>
         <Card>
@@ -162,4 +218,12 @@ const styles = StyleSheet.create({
   factLabel: { width: 110, fontSize: fontSize.sm, fontWeight: "700", color: colors.muted },
   factValue: { flex: 1, fontSize: fontSize.sm, color: colors.ink },
   link: { fontSize: fontSize.md, color: colors.teal, fontWeight: "600" },
+  saveButton: { borderWidth: 1, borderColor: colors.line, borderRadius: 10, padding: spacing.md },
+  saveButtonActive: { backgroundColor: colors.tealSoft, borderColor: colors.teal },
+  saveButtonText: { color: colors.navy, fontSize: fontSize.sm, fontWeight: "700", textAlign: "center" },
+  saveButtonTextActive: { color: colors.teal },
+  noteInput: { minHeight: 90, borderWidth: 1, borderColor: colors.line, borderRadius: 10, padding: spacing.md, marginTop: spacing.md, color: colors.ink, textAlignVertical: "top", backgroundColor: colors.inputBg },
+  noteButton: { alignSelf: "flex-end", backgroundColor: colors.navy, borderRadius: 10, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, marginTop: spacing.sm },
+  noteButtonText: { color: colors.white, fontSize: fontSize.sm, fontWeight: "700" },
+  workspaceMessage: { color: colors.muted, fontSize: fontSize.xs, marginTop: spacing.xs },
 });

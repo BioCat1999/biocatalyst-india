@@ -70,6 +70,20 @@ function InsightsButton({ onPress }: { onPress: () => void }) {
   );
 }
 
+function CalendarButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel="Catalyst calendar"
+      style={styles.insightsButton}
+    >
+      <Ionicons name="calendar-outline" size={18} color={colors.white} />
+    </Pressable>
+  );
+}
+
 /**
  * Bottom tabs: Feed, Search, Global, Watchlist, Alerts, Account.
  * RootNavigator only mounts this navigator for authenticated members.
@@ -121,6 +135,13 @@ export function MainTabs() {
           title: "Catalyst Feed",
           headerRight: () => (
             <View style={styles.headerRow}>
+              <CalendarButton
+                onPress={() =>
+                  navigation
+                    .getParent<NativeStackNavigationProp<RootStackParamList>>()
+                    ?.navigate("Calendar")
+                }
+              />
               <InsightsButton
                 onPress={() =>
                   navigation
@@ -157,7 +178,18 @@ export function MainTabs() {
         options={({ navigation }) => ({
           title: "Watchlist",
           headerRight: () => (
-            <SearchButton onPress={() => navigation.navigate("Search", { scope: "companies" })} />
+            <View style={styles.headerRow}>
+              <Pressable
+                onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate("Monitors")}
+                accessibilityRole="button"
+                accessibilityLabel="Smart monitors"
+                style={styles.ipoButton}
+              >
+                <Ionicons name="options-outline" size={17} color={colors.white} />
+                <Text style={styles.ipoButtonText}>MONITORS</Text>
+              </Pressable>
+              <SearchButton onPress={() => navigation.navigate("Search", { scope: "companies" })} />
+            </View>
           ),
         })}
       />

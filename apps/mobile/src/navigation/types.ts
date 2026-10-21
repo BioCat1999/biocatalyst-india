@@ -8,6 +8,9 @@ export type RootStackParamList = {
   Trial: { registry: string; trialId: string };
   Ipo: undefined;
   Insights: undefined;
+  Calendar: undefined;
+  Monitors: undefined;
+  Library: undefined;
   SignIn: undefined;
   SignUp: undefined;
 };

@@ -44,6 +44,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/digest">Digest</Link>
               <Link href="/search">Search</Link>
               <Link href="/watchlist">Watchlist</Link>
+              <Link href="/monitors">Monitors</Link>
+              <Link href="/library">Library</Link>
             </nav>
             <div className="topbar-right">
               <SearchForm />

@@ -69,6 +69,14 @@ export async function POST(req: NextRequest) {
       token: parsed.data.token,
       platform: parsed.data.platform,
     });
+    await pool.query(
+      `INSERT INTO notification_outbox (alert_id, user_id, event_id)
+       SELECT a.id, a.user_id, a.event_id FROM alerts a
+        WHERE a.user_id = $1::uuid AND a.channel = 'in_app'
+          AND a.read_at IS NULL
+       ON CONFLICT (alert_id) DO NOTHING`,
+      [user.id],
+    );
     return NextResponse.json(
       {
         status: "registered",

@@ -68,10 +68,13 @@ export type Exchange =
   | "EPA"
   | "XETRA"
   | "SWX"
-  | "TSE";
+  | "TSE"
+  | "AMS"
+  | "EBR"
+  | "HKEX";
 
 /** Currencies for listed securities. */
-export type Currency = "INR" | "USD" | "CHF" | "EUR" | "GBP" | "JPY";
+export type Currency = "INR" | "USD" | "CHF" | "EUR" | "GBP" | "JPY" | "HKD";
 
 export interface Security {
   exchange: Exchange;

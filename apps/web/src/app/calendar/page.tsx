@@ -1,170 +1,77 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
-import {
-  getUpcomingTrials,
-  listCompanies,
-  listDrugs,
-} from "@biocatalyst/data";
-import { trialUrl } from "@/lib/urls";
+import { getCatalystCalendar } from "@biocatalyst/data";
 import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-const getCachedCalendarData = unstable_cache(
-  async () => {
-    const [trials, companies, drugs] = await Promise.all([
-      getUpcomingTrials(100),
-      listCompanies(),
-      listDrugs(),
-    ]);
-    return { trials, companies, drugs };
-  },
-  ["catalyst-calendar"],
-  { revalidate: 600 },
+const getCachedCalendar = unstable_cache(
+  () => getCatalystCalendar({ limit: 250 }),
+  ["unified-catalyst-calendar"],
+  { revalidate: 300 },
 );
 
-function monthKey(iso: string): string {
-  return iso.slice(0, 7); // YYYY-MM
-}
+const KIND_LABELS: Record<string, string> = {
+  trial_completion: "Trial completion",
+  patent_expiry: "Patent expiry",
+  pdufa: "PDUFA",
+  advisory_committee: "Advisory committee",
+  regulatory_decision: "Regulatory decision",
+  trial_readout: "Trial readout",
+  conference: "Conference",
+  earnings: "Earnings",
+  ipo: "IPO",
+  other: "Milestone",
+};
 
 function monthLabel(iso: string): string {
-  const [y, m] = iso.slice(0, 7).split("-").map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString("en-IN", {
+  const [year, month] = iso.slice(0, 7).split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString("en-IN", {
     month: "long",
     year: "numeric",
   });
 }
 
 export default async function CalendarPage() {
-  const { trials, companies, drugs } = await getCachedCalendarData();
-  const companiesById = new Map(companies.map((company) => [company.id, company]));
-  const drugsById = new Map(drugs.map((drug) => [drug.id, drug]));
-  const sponsorOpts = trials.map((trial) =>
-    trial.sponsorCompanyId ? companiesById.get(trial.sponsorCompanyId) : undefined,
-  );
-  const drugOpts = trials.map((trial) =>
-    trial.drugIds.map((id) => drugsById.get(id)).filter((drug) => drug !== undefined),
-  );
-
-  const byMonth = new Map<string, number[]>();
-  trials.forEach((t, i) => {
-    if (!t.primaryCompletionDate) return;
-    const key = monthKey(t.primaryCompletionDate);
-    byMonth.set(key, [...(byMonth.get(key) ?? []), i]);
-  });
-  const months = [...byMonth.keys()].sort();
-
-  // Trials to watch: Phase 3 (or 2/3) readouts first, then nearest dates.
-  // These are the readouts most likely to move sponsors' stocks.
-  const phaseRank = (p?: string) =>
-    p === "Phase 3" || p === "Phase 2/3" ? 0 : p === "Phase 2" ? 1 : 2;
-  const toWatch = trials
-    .map((t, i) => ({ t, i }))
-    .filter(({ t }) => t.primaryCompletionDate)
-    .sort(
-      (a, b) =>
-        phaseRank(a.t.phase) - phaseRank(b.t.phase) ||
-        (a.t.primaryCompletionDate! < b.t.primaryCompletionDate! ? -1 : 1),
-    )
-    .slice(0, 5);
+  const items = await getCachedCalendar();
+  const months = new Map<string, typeof items>();
+  for (const item of items) {
+    const key = item.date.slice(0, 7);
+    months.set(key, [...(months.get(key) ?? []), item]);
+  }
 
   return (
     <>
       <div className="page-head">
         <h1>Catalyst calendar</h1>
         <p>
-          Upcoming trial readouts — primary completion dates for tracked
-          trials, soonest first. Dates are sponsor guidance, not guarantees.
+          One forward calendar for trial completions, PDUFA and regulatory dates,
+          patent expiries and other disclosed catalysts. Estimated dates are labelled.
         </p>
       </div>
 
-      {trials.length === 0 && (
-        <div className="empty">
-          <p>No upcoming trial completions on the calendar.</p>
-        </div>
-      )}
+      {items.length === 0 && <div className="empty"><p>No upcoming catalysts found.</p></div>}
 
       <div style={{ paddingBottom: 48 }}>
-        {toWatch.length > 0 && (
-          <section aria-label="Trials to watch" style={{ marginBottom: 28 }}>
-            <h2>Trials to watch</h2>
-            <p className="muted" style={{ marginTop: -8 }}>
-              Late-stage readouts nearest in time — the results most likely to
-              move their sponsors. Follow a company to get alerted when results
-              land.
-            </p>
-            {toWatch.map(({ t, i }) => {
-              const sponsor = sponsorOpts[i];
-              const drugs = (drugOpts[i] ?? []).filter((d) => d !== undefined);
-              return (
-                <div key={t.id} className="result-row">
-                  <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-                    <strong style={{ color: "var(--teal)" }}>
-                      {t.primaryCompletionDate ? formatDate(t.primaryCompletionDate) : "—"}
-                    </strong>
-                    <Link href={trialUrl(t)} style={{ color: "inherit" }}>
-                      <strong>{t.registryTrialId}</strong>
-                    </Link>
-                    {t.phase && <span className="tag neutral">{t.phase}</span>}
-                  </div>
-                  <div style={{ fontSize: 13, marginTop: 4 }}>{t.title}</div>
-                  <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
-                    {sponsor && (
-                      <>
-                        <Link href={`/companies/${sponsor.slug}`}>{sponsor.canonicalName}</Link>
-                        {" · "}
-                      </>
-                    )}
-                    {drugs.map((d, di) => (
-                      <span key={d!.id}>
-                        {di > 0 && " · "}
-                        <Link href={`/drugs/${d!.slug}`}>{d!.canonicalName}</Link>
-                      </span>
-                    ))}
-                  </div>
+        {[...months.entries()].map(([month, monthItems]) => (
+          <section key={month} aria-label={monthLabel(month)} style={{ marginBottom: 28 }}>
+            <h2>{monthLabel(month)}</h2>
+            {monthItems.map((item) => (
+              <article key={item.id} className="result-row">
+                <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                  <strong style={{ color: "var(--teal)" }}>{formatDate(item.date)}</strong>
+                  <span className="tag neutral">{KIND_LABELS[item.kind] ?? item.kind.replaceAll("_", " ")}</span>
+                  <span className="tag neutral">{item.status}</span>
+                  {item.country && <span className="tag neutral">{item.country}</span>}
                 </div>
-              );
-            })}
-          </section>
-        )}
-        {months.map((m) => (
-          <section key={m} aria-label={monthLabel(m)} style={{ marginBottom: 28 }}>
-            <h2>{monthLabel(m)}</h2>
-            {(byMonth.get(m) ?? []).map((i) => {
-              const t = trials[i];
-              const sponsor = sponsorOpts[i];
-              const drugs = (drugOpts[i] ?? []).filter((d) => d !== undefined);
-              return (
-                <div key={t.id} className="result-row">
-                  <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-                    <strong style={{ color: "var(--teal)" }}>
-                      {t.primaryCompletionDate ? formatDate(t.primaryCompletionDate) : "—"}
-                    </strong>
-                    <Link href={trialUrl(t)} style={{ color: "inherit" }}>
-                      <strong>{t.registryTrialId}</strong>
-                    </Link>
-                    {t.phase && <span className="tag neutral">{t.phase}</span>}
-                    <span className="tag neutral">{t.status}</span>
-                  </div>
-                  <div style={{ fontSize: 13, marginTop: 4 }}>{t.title}</div>
-                  <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
-                    {sponsor && (
-                      <>
-                        <Link href={`/companies/${sponsor.slug}`}>{sponsor.canonicalName}</Link>
-                        {" · "}
-                      </>
-                    )}
-                    {drugs.map((d, di) => (
-                      <span key={d!.id}>
-                        {di > 0 && " · "}
-                        <Link href={`/drugs/${d!.slug}`}>{d!.canonicalName}</Link>
-                      </span>
-                    ))}
-                    {t.indications.length > 0 && <> · {t.indications.join(", ")}</>}
-                  </div>
+                <h3 style={{ fontSize: 15, margin: "8px 0 4px" }}>{item.title}</h3>
+                <p className="muted" style={{ margin: 0, fontSize: 13 }}>{item.detail}</p>
+                <div style={{ display: "flex", gap: 12, marginTop: 7, fontSize: 13 }}>
+                  {item.company && <Link href={`/companies/${item.company.slug}`}>{item.company.canonicalName}</Link>}
+                  <a href={item.sourceUrl} target="_blank" rel="noreferrer">Source ↗</a>
                 </div>
-              );
-            })}
+              </article>
+            ))}
           </section>
         ))}
       </div>

@@ -22,6 +22,14 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
+const REGIONS = [
+  { label: "All", country: null },
+  { label: "USA", country: "United States" },
+  { label: "UK", country: "United Kingdom" },
+  { label: "Netherlands", country: "Netherlands" },
+  { label: "Hong Kong", country: "Hong Kong" },
+] as const;
+
 export function GlobalScreen({ navigation }: Props) {
   const cached = getCachedGlobalCompanies();
   const [items, setItems] = useState<CompanyListItem[]>(() => cached?.items ?? []);
@@ -31,6 +39,7 @@ export function GlobalScreen({ navigation }: Props) {
   const [total, setTotal] = useState(cached?.total ?? cached?.items.length ?? 0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  const [country, setCountry] = useState<string | null>(null);
 
   const load = useCallback(async (force = false) => {
     try {
@@ -47,11 +56,31 @@ export function GlobalScreen({ navigation }: Props) {
     }
   }, []);
 
+  const selectCountry = useCallback(async (nextCountry: string | null) => {
+    setCountry(nextCountry);
+    setLoading(true);
+    setError(null);
+    try {
+      const res = nextCountry
+        ? await getApiClient().listCompanies("country", { limit: 50, country: nextCountry })
+        : await loadGlobalCompanies();
+      setItems(res.items);
+      setNextCursor(res.nextCursor ?? null);
+      setTotal(res.total ?? res.items.length);
+    } catch (err) {
+      setError(err instanceof ApiError ? err : new ApiError(0, String(err), "network"));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const loadMore = useCallback(async () => {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const res = await getApiClient().listCompanies("global", { limit: 50, cursor: nextCursor });
+      const res = country
+        ? await getApiClient().listCompanies("country", { limit: 50, cursor: nextCursor, country })
+        : await getApiClient().listCompanies("global", { limit: 50, cursor: nextCursor });
       setItems((current) => {
         const seen = new Set(current.map((item) => item.id));
         return [...current, ...res.items.filter((item) => !seen.has(item.id))];
@@ -63,7 +92,7 @@ export function GlobalScreen({ navigation }: Props) {
     } finally {
       setLoadingMore(false);
     }
-  }, [loadingMore, nextCursor, total]);
+  }, [country, loadingMore, nextCursor, total]);
 
   useFocusEffect(
     useCallback(() => {
@@ -94,10 +123,28 @@ export function GlobalScreen({ navigation }: Props) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} />}
         ListEmptyComponent={<EmptyView message="No global companies tracked yet." />}
         ListHeaderComponent={
-          <Text style={styles.blurb}>
-            {total.toLocaleString()} global clinical-industry companies. Results load in fast batches
-            as you scroll.
-          </Text>
+          <View>
+            <View style={styles.regionRow}>
+              {REGIONS.map((region) => {
+                const active = country === region.country;
+                return (
+                  <Pressable
+                    key={region.label}
+                    onPress={() => void selectCountry(region.country)}
+                    style={[styles.regionChip, active && styles.regionChipActive]}
+                  >
+                    <Text style={[styles.regionChipText, active && styles.regionChipTextActive]}>
+                      {region.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={styles.blurb}>
+              {total.toLocaleString()} {country ?? "global"} clinical-industry companies. Results load in fast batches
+              as you scroll.
+            </Text>
+          </View>
         }
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
@@ -129,6 +176,24 @@ export function GlobalScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  regionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+  },
+  regionChip: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.card,
+  },
+  regionChipActive: { backgroundColor: colors.teal, borderColor: colors.teal },
+  regionChipText: { color: colors.muted, fontSize: fontSize.xs, fontWeight: "700" },
+  regionChipTextActive: { color: colors.white },
   blurb: {
     fontSize: fontSize.sm,
     color: colors.muted,

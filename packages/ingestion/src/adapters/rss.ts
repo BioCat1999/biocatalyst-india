@@ -36,6 +36,7 @@ import {
 } from "../normalize.js";
 import { matchDrugName } from "./company-map.js";
 import { fetchText } from "./http.js";
+import { extractRegulatoryMilestones } from "../milestones.js";
 
 export const PRESS_RSS_SOURCE_NAME = "press-rss";
 const REQUEST_TIMEOUT_MS = 20_000;
@@ -332,6 +333,10 @@ export class PressRssAdapter implements SourceAdapter {
           entityKey: companyName,
         }),
         rawSnapshot: raw,
+        calendarMilestones: extractRegulatoryMilestones(
+          `${raw.title} ${raw.description ?? ""}`,
+          companyName,
+        ),
       },
     ];
   }

@@ -21,7 +21,9 @@ crash-reporting SDK. Data is not sold and is not used for tracking.
 - Normal server security and rate-limiting logs can contain an IP address and
   are retained according to the published privacy policy.
 
-The app does not collect a push token in version 1.0.3. It does not collect
+When notification permission is granted, the app stores a device push token
+linked to the signed-in account solely to deliver requested catalyst alerts.
+It does not collect
 precise location, contacts, photos, videos, audio, health, financial-account,
 messages, advertising ID, or device sensor data.
 
@@ -34,6 +36,7 @@ Answer **Yes** to collection and **No** to sharing.
 | Email address (Personal info) | Required account sign-in | Account management, app access and functionality | Required; users may use any valid email address, including Gmail |
 | User IDs (Personal info) | Internal account identifier and, when selected, Google account identifier | Account management | Optional; created or linked with an account |
 | App interactions (App activity) | Watchlist choices and in-app alert state | App functionality and personalization | Optional; signed-in feature |
+| Device or other IDs | Push token when notifications are enabled | App functionality and personalized alerts | Optional |
 | Other user-generated content | Text deliberately submitted in a support/data issue report | Developer communications and app functionality | Optional |
 
 Security answers:

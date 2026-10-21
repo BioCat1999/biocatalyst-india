@@ -62,9 +62,10 @@ export interface CtgovStudy {
       studyFirstSubmitDate?: unknown;
     };
     sponsorCollaboratorsModule?: { leadSponsor?: { name?: unknown } };
-    designModule?: { phases?: unknown };
+    designModule?: { phases?: unknown; enrollmentInfo?: { count?: unknown } };
     conditionsModule?: { conditions?: unknown };
-    armsInterventionsModule?: { interventions?: { name?: unknown }[] };
+    armsInterventionsModule?: { interventions?: { name?: unknown; type?: unknown }[] };
+    outcomesModule?: { primaryOutcomes?: { measure?: unknown }[] };
     descriptionModule?: { briefSummary?: unknown };
   };
 }
@@ -126,6 +127,17 @@ function recordDate(study: CtgovStudy): string | null {
 
 function nctIdOf(study: CtgovStudy): string | null {
   return asText(study.protocolSection?.identificationModule?.nctId);
+}
+
+function exactDate(raw: unknown): string | null {
+  const value = asText(raw);
+  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
+function enrollmentOf(study: CtgovStudy): number | null {
+  const raw = study.protocolSection?.designModule?.enrollmentInfo?.count;
+  const value = typeof raw === "number" ? raw : Number(raw);
+  return Number.isInteger(value) && value >= 0 ? value : null;
 }
 
 function daysAgoIso(days: number): string {
@@ -280,8 +292,14 @@ export class CtgovAdapter implements SourceAdapter {
       asText(ps.identificationModule?.briefTitle) ??
       asText(ps.identificationModule?.officialTitle) ??
       `ClinicalTrials.gov record ${nctId}`;
-    const primaryCompletion = asText(ps.statusModule?.primaryCompletionDateStruct?.date);
-    const startDate = asText(ps.statusModule?.startDateStruct?.date);
+    const primaryCompletion = exactDate(ps.statusModule?.primaryCompletionDateStruct?.date);
+    const startDate = exactDate(ps.statusModule?.startDateStruct?.date);
+    const primaryEndpoints = Array.isArray(ps.outcomesModule?.primaryOutcomes)
+      ? ps.outcomesModule.primaryOutcomes
+          .map((outcome) => asText(outcome?.measure))
+          .filter((measure): measure is string => Boolean(measure))
+          .slice(0, 20)
+      : [];
 
     const headline =
       eventType && status
@@ -320,7 +338,7 @@ export class CtgovAdapter implements SourceAdapter {
         indication,
         phase,
         outcome: null, // registry data can't establish endpoint outcomes — stays null (spec §17)
-        trialRefs: [], // real NCT ids are not in the canonical trial catalog; emitting them would force rejection
+        trialRefs: [{ registry: "ClinicalTrials.gov", registryTrialId: nctId }],
         companyNames: [company],
         drugNames,
         sourceTitle: title,
@@ -337,6 +355,21 @@ export class CtgovAdapter implements SourceAdapter {
         // event (a bare NCT key would merge later status changes into the
         // first event and swallow the signal).
         rawSnapshot: study,
+        trialRecord: {
+          registry: "ClinicalTrials.gov",
+          registryTrialId: nctId,
+          title,
+          phase,
+          status,
+          enrollment: enrollmentOf(study),
+          sponsorCompanyName: company,
+          startDate,
+          primaryCompletionDate: primaryCompletion,
+          sourceUrl: doc.canonicalUrl,
+          primaryEndpoints,
+          indications: conditions,
+          drugNames,
+        },
       },
     ];
   }

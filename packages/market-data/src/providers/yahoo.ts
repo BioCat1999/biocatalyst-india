@@ -39,6 +39,9 @@ function yahooSymbol(security: SecurityRef): string | null {
   if (security.exchange === "XETRA") return `${security.ticker}.DE`;
   if (security.exchange === "SWX") return `${security.ticker}.SW`;
   if (security.exchange === "TSE") return `${security.ticker}.T`;
+  if (security.exchange === "AMS") return `${security.ticker}.AS`;
+  if (security.exchange === "EBR") return `${security.ticker}.BR`;
+  if (security.exchange === "HKEX") return `${security.ticker.padStart(4, "0")}.HK`;
   return null;
 }
 

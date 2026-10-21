@@ -9,6 +9,9 @@ import { DrugScreen } from "../screens/DrugScreen";
 import { TrialScreen } from "../screens/TrialScreen";
 import { IpoScreen } from "../screens/IpoScreen";
 import { InsightsScreen } from "../screens/InsightsScreen";
+import { CalendarScreen } from "../screens/CalendarScreen";
+import { MonitorsScreen } from "../screens/MonitorsScreen";
+import { LibraryScreen } from "../screens/LibraryScreen";
 import { SignInScreen, SignUpScreen } from "../screens/AuthScreens";
 import { useAuth } from "../auth/AuthContext";
 import { LoadingView, Screen } from "../components/Ui";
@@ -43,6 +46,9 @@ export function RootNavigator() {
           <Stack.Screen name="Trial" component={TrialScreen} options={{ title: "Trial" }} />
           <Stack.Screen name="Ipo" component={IpoScreen} options={{ title: "Pharma IPOs" }} />
           <Stack.Screen name="Insights" component={InsightsScreen} options={{ title: "Intelligence" }} />
+          <Stack.Screen name="Calendar" component={CalendarScreen} options={{ title: "Catalyst Calendar" }} />
+          <Stack.Screen name="Monitors" component={MonitorsScreen} options={{ title: "Smart Monitors" }} />
+          <Stack.Screen name="Library" component={LibraryScreen} options={{ title: "Research Library" }} />
         </>
       ) : (
         <>

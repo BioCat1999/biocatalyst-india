@@ -192,7 +192,8 @@ the header shows a notification bell with the unread-alert count.
   in-app alert — strictly deduped by `(event_id, user_id, channel)`, so
   re-ingests never duplicate. Unfollowing instantly stops new alerts for
   that entity. `/alerts` is the notification center (per-alert and mark-all
-  read). Email/push are later milestones.
+  read). Saved monitors can also match keywords, event types, countries,
+  indications and phases; eligible alerts are queued for push delivery.
 - **Security**: `/api/v1/auth/*` rate-limited to 20 req/min per IP (vs 120
   elsewhere), Zod-validated inputs, no password/token logging, passwords
   never in API responses. Anonymous browsing (feed, entity pages, search)
@@ -209,7 +210,7 @@ session/env notes: `docs/runbook.md`.
   `packages/db` (Postgres client, SQL migrations, no ORM),
   `packages/auth` (pluggable auth provider interface + local self-hostable
   implementation), `packages/notifications` (in-app alert generation +
-  read state).
+  read state, monitor matching and durable Expo push outbox).
 - **Database** (Milestone 2): canonical Postgres schema per spec §5 — UUID
   primary keys, provenance columns, trigram search indexes. Plain-SQL
   migrations (`packages/db/migrations`), idempotent seed from the M1
@@ -330,16 +331,16 @@ Production smoke check (after `pnpm build`):
 `DATABASE_URL=<redacted> pnpm --filter @biocatalyst/web start`
 then verify `/`, an event page, `/search`, `/privacy`, `/admin/issues`.
 
-## Milestone 9 — Expo mobile app (local only)
+## Expo mobile app
 
-Everything in this section was verified **locally** — no accounts created,
-no EAS/cloud builds, no push credentials configured, no telemetry
-(`EXPO_TELEMETRY_DISABLED=1` on all commands; see `docs/decisions.md`).
+The Android/iOS/web bundles are verified locally. Store push delivery still
+requires the production EAS project id and platform credentials; no telemetry
+SDK is included.
 
 - **New packages**: `@biocatalyst/api-client` — typed fetch client over the
   unchanged `/api/v1/*` routes (zod v4 validation with compile-time drift
   guards against `@biocatalyst/types`); `@biocatalyst/mobile`
-  (`apps/mobile`) — Expo SDK 53 app (managed workflow).
+  (`apps/mobile`) — Expo SDK 54 app (managed workflow).
 - **Auth without API changes**: the app captures the `bc_session` token
   from the `Set-Cookie` header after sign-in and re-attaches it as a
   `Cookie` header (SecureStore-backed token storage). No token in any
@@ -350,14 +351,11 @@ no EAS/cloud builds, no push credentials configured, no telemetry
   grouped Search, Sign in/up, Watchlist (unfollow), Alerts (mark
   read/all-read), Account (push toggle, API URL display). Anonymous
   browsing everywhere; watchlist/alerts auth-gated like the web app.
-- **Push — plumbing + registration, not delivery**: `expo-notifications`
-  requests permission, reads the *device* token
-  (`getDevicePushTokenAsync()`, no network), stores it in SecureStore,
-  and POSTs to `/api/v1/push-tokens` (added in M10: auth-required,
-  idempotent). `getExpoPushTokenAsync()` is deliberately unused
-  (contacts Expo's servers). Real delivery needs FCM/APNs credentials + a
-  dev/store build — see `docs/deployment.md` for exactly what you'd need
-  to provide.
+- **Push — durable delivery path**: `expo-notifications` requests permission,
+  registers an Expo token, and POSTs it to `/api/v1/push-tokens`. Published
+  matching alerts enter a retryable outbox; the scheduler sends pending
+  messages through Expo Push Service. Production still needs an EAS project
+  id plus FCM/APNs credentials — see `docs/deployment.md`.
 - **Run it**: `pnpm --filter @biocatalyst/web dev` plus
   `EXPO_PUBLIC_API_URL=http://<lan-ip>:3000 pnpm --filter
   @biocatalyst/mobile dev`, scan the QR with Expo Go. `expo export`
@@ -379,11 +377,9 @@ committed. The app is store-*ready*; submission itself is a user action
   66% safe zone; navy background via config), `splash.png` 1024×1024,
   `favicon.png` 48×48. Wired in `app.json` (`icon`, `splash`,
   `ios.icon`, `android.adaptiveIcon`).
-- **Push backend, minimal**: `POST /api/v1/push-tokens` (migration
-  `009_push_tokens.sql`, `push_tokens` table, Zod validation,
-  auth-required, idempotent upsert, per-user isolation). Registration
-  storage only — actual push **fan-out still needs FCM/APNs credentials**
-  and is deferred (see `docs/deployment.md`).
+- **Push backend**: authenticated idempotent token registration, per-user
+  isolation, alert fan-out, a durable retryable outbox and an admin delivery
+  endpoint. FCM/APNs/EAS activation remains an external release credential step.
 - **Permissions** (`docs/store/permissions.md`): notifications are the
   only runtime permission (exact in-app rationale copy documented); no
   camera/location/mic/contacts/calendar. Android manifest permissions
@@ -392,7 +388,7 @@ committed. The app is store-*ready*; submission itself is a user action
   pin `android.permissions`.
 - **Privacy labels** (`docs/store/privacy-labels.md`): Apple App Privacy
   and Google Play Data safety answers grounded in actual behavior (account
-  email + push token on the user's own server only; no analytics, no
+  email + push token used with Expo/platform push services; no analytics, no
   tracking, no third-party SDKs, no data sold). Items needing live
   verification are flagged "verify before submission".
 - **Screenshots** (`docs/store/screenshots.md`): shot list for iPhone

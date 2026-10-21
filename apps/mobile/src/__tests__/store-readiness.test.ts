@@ -7,7 +7,7 @@
  *    files; icon / splash / adaptive-icon are wired for both platforms.
  * 3. Permission audit: no camera/location/microphone/contacts/calendar
  *    (or any unexpected) permission is declared or implied by config;
- *    unfinished remote-push dependencies are absent from the first release.
+ *    notification support is the only additional native capability.
  * 4. docs/store/ is complete: permissions, privacy-labels, screenshots,
  *    build, crash-reporting, listing.
  */
@@ -95,9 +95,12 @@ describe("permission audit", () => {
     for (const f of forbidden) expect(raw).not.toContain(f);
   });
 
-  it("uses only the local release-signing config plugin", () => {
+  it("uses only release-signing and notification config plugins", () => {
     const plugins = appJson().expo.plugins as unknown[];
-    expect(plugins).toEqual(["./plugins/withAndroidReleaseSigning"]);
+    expect(plugins).toEqual([
+      "./plugins/withAndroidReleaseSigning",
+      ["expo-notifications", { color: "#0e7c7b" }],
+    ]);
   });
 
   it("blocks permissions that the app does not need", () => {
