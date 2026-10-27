@@ -21,7 +21,10 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const screenOptions = {
   headerStyle: { backgroundColor: colors.navy },
   headerTintColor: colors.white,
-  headerTitleStyle: { fontWeight: "700" as const },
+  headerTitleStyle: { fontWeight: "800" as const },
+  headerShadowVisible: false,
+  contentStyle: { backgroundColor: colors.bg },
+  animation: "slide_from_right" as const,
 };
 
 export function RootNavigator() {
@@ -46,7 +49,7 @@ export function RootNavigator() {
           <Stack.Screen name="Trial" component={TrialScreen} options={{ title: "Trial" }} />
           <Stack.Screen name="Ipo" component={IpoScreen} options={{ title: "Pharma IPOs" }} />
           <Stack.Screen name="Insights" component={InsightsScreen} options={{ title: "Intelligence" }} />
-          <Stack.Screen name="Calendar" component={CalendarScreen} options={{ title: "Catalyst Calendar" }} />
+          <Stack.Screen name="Calendar" component={CalendarScreen} options={{ title: "Calendar" }} />
           <Stack.Screen name="Monitors" component={MonitorsScreen} options={{ title: "Smart Monitors" }} />
           <Stack.Screen name="Library" component={LibraryScreen} options={{ title: "Research Library" }} />
         </>

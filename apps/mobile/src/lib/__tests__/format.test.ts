@@ -1,4 +1,4 @@
-import { formatDate, formatPct, parseWatchlistHref } from "../format";
+import { formatDate, formatPct, formatRelative, parseWatchlistHref } from "../format";
 
 describe("formatDate", () => {
   it("formats ISO timestamps as 'D Mon YYYY'", () => {
@@ -7,6 +7,21 @@ describe("formatDate", () => {
   it("falls back for null/invalid input", () => {
     expect(formatDate(null)).toBe("—");
     expect(formatDate("not-a-date")).toBe("not-a-date");
+  });
+});
+
+describe("formatRelative", () => {
+  const now = Date.parse("2026-10-27T12:00:00.000Z");
+  it("uses short relative labels for the last week", () => {
+    expect(formatRelative("2026-10-27T11:59:40.000Z", now)).toBe("Just now");
+    expect(formatRelative("2026-10-27T11:55:00.000Z", now)).toBe("5m ago");
+    expect(formatRelative("2026-10-27T09:00:00.000Z", now)).toBe("3h ago");
+    expect(formatRelative("2026-10-25T12:00:00.000Z", now)).toBe("2d ago");
+  });
+  it("falls back to a date for older or future timestamps", () => {
+    expect(formatRelative("2026-09-29T10:00:00.000Z", now)).toBe("29 Sep 2026");
+    expect(formatRelative("2026-11-01T10:00:00.000Z", now)).toBe("1 Nov 2026");
+    expect(formatRelative(null, now)).toBe("—");
   });
 });
 

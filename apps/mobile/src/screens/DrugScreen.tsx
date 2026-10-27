@@ -19,6 +19,7 @@ export function DrugScreen({ route, navigation }: Props) {
   const { data: drug, loading, error, retry } = useApiCall(
     () => getApiClient().getDrug(slug),
     slug,
+    { cacheKey: `drug:${slug}`, staleMs: 300_000 },
   );
 
   const trialsByPhase = useMemo(() => {

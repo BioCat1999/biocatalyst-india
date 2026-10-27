@@ -29,6 +29,7 @@ export function TrialScreen({ route }: Props) {
   const { data: trial, loading, error, retry } = useApiCall(
     () => getApiClient().getTrial(registry, trialId),
     key,
+    { cacheKey: `trial:${key}`, staleMs: 300_000 },
   );
 
   if (loading)

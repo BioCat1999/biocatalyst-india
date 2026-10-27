@@ -1129,10 +1129,16 @@ export async function getCatalystCalendar(options: {
   limit?: number;
   country?: string;
   kind?: string;
+  /** Inclusive YYYY-MM-DD window. `from` never goes earlier than today. */
+  from?: string;
+  to?: string;
 } = {}): Promise<CatalystCalendarItem[]> {
-  const limit = Math.min(250, Math.max(1, options.limit ?? 100));
+  const limit = Math.min(500, Math.max(1, options.limit ?? 100));
   const country = options.country?.trim().slice(0, 100) ?? "";
   const kind = options.kind?.trim().slice(0, 50) ?? "";
+  const isDay = (v?: string) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const from = isDay(options.from) ? options.from! : "";
+  const to = isDay(options.to) ? options.to! : "";
   const { rows } = await getPool().query<CatalystCalendarRow>(
     `WITH calendar AS (
        SELECT 'trial:' || t.id::text AS id, 'trial_completion'::text AS kind,
@@ -1159,8 +1165,9 @@ export async function getCatalystCalendar(options: {
      )
      SELECT * FROM calendar
       WHERE ($1 = '' OR country = $1) AND ($2 = '' OR kind = $2)
+        AND ($4 = '' OR date >= $4) AND ($5 = '' OR date <= $5)
       ORDER BY date, kind, title LIMIT $3`,
-    [country, kind, limit],
+    [country, kind, limit, from, to],
   );
   return rows.map((row) => ({
     id: row.id,

@@ -124,8 +124,15 @@ export function MainTabs() {
             Alerts: focused ? "notifications" : "notifications-outline",
             Account: focused ? "person-circle" : "person-circle-outline",
           } as const;
-          return <Ionicons name={icons[route.name]} size={focused ? size + 1 : size} color={color} />;
+          return (
+            <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
+              <Ionicons name={icons[route.name]} size={size - 2} color={color} />
+            </View>
+          );
         },
+        // Keep visited tabs mounted so switching back is instant.
+        lazy: true,
+        freezeOnBlur: true,
       })}
     >
       <Tab.Screen
@@ -217,6 +224,8 @@ export function MainTabs() {
 
 const styles = StyleSheet.create({
   headerRow: { flexDirection: "row", alignItems: "center" },
+  tabIcon: { width: 44, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  tabIconActive: { backgroundColor: colors.tealSoft },
   headerButton: { marginRight: 14, padding: 5 },
   ipoButton: {
     marginRight: 8,

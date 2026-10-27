@@ -101,7 +101,7 @@ function PatentCliff({ items }: { items: InsightsResponse["patentCliff"] }) {
 }
 
 export function InsightsScreen({ navigation }: Props) {
-  const insights = useApiCall(() => getApiClient().getInsights(), "insights");
+  const insights = useApiCall(() => getApiClient().getInsights(), "insights", { cacheKey: "insights", staleMs: 120_000 });
   if (insights.loading) return <Screen><LoadingView label="Building intelligence map…" /></Screen>;
   if (insights.error) return <Screen><ErrorView message={insights.error.message} onRetry={insights.retry} /></Screen>;
   if (!insights.data) return <Screen><EmptyView message="No intelligence data available yet." /></Screen>;

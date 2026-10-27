@@ -399,9 +399,18 @@ export class ApiClient {
   }
 
   /** Unified upcoming trial, regulatory, patent and corporate milestones. */
-  getCalendar(options?: { country?: string; kind?: string; limit?: number }): Promise<CalendarResponse> {
+  getCalendar(options?: {
+    country?: string;
+    kind?: string;
+    limit?: number;
+    /** Inclusive YYYY-MM-DD window for week / month views. */
+    from?: string;
+    to?: string;
+  }): Promise<CalendarResponse> {
     return this.request(this.url("/api/v1/calendar", {
       ...(options?.country ? { country: options.country } : {}),
+      ...(options?.from ? { from: options.from } : {}),
+      ...(options?.to ? { to: options.to } : {}),
       ...(options?.kind ? { kind: options.kind } : {}),
       ...(options?.limit ? { limit: options.limit } : {}),
     }), { schema: calendarResponseSchema });

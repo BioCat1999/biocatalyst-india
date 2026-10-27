@@ -9,10 +9,12 @@ import { getCatalystCalendar } from "@biocatalyst/data";
  */
 export async function GET(req: NextRequest) {
   const parsedLimit = Number.parseInt(req.nextUrl.searchParams.get("limit") ?? "100", 10);
-  const limit = Math.min(250, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 100));
+  const limit = Math.min(500, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 100));
   const country = (req.nextUrl.searchParams.get("country") ?? "").trim().slice(0, 100);
   const kind = (req.nextUrl.searchParams.get("kind") ?? "").trim().slice(0, 50);
-  const items = await getCatalystCalendar({ country, kind, limit });
+  const from = (req.nextUrl.searchParams.get("from") ?? "").trim().slice(0, 10);
+  const to = (req.nextUrl.searchParams.get("to") ?? "").trim().slice(0, 10);
+  const items = await getCatalystCalendar({ country, kind, limit, from, to });
   return NextResponse.json(
     {
       generatedAt: new Date().toISOString(),

@@ -58,14 +58,15 @@ function PriceCard({ quote }: { quote: Quote }) {
 export function CompanyScreen({ route, navigation }: Props) {
   const { slug } = route.params;
   const [historyDays, setHistoryDays] = useState<30 | 90 | 180 | 365>(180);
-  const company = useApiCall(() => getApiClient().getCompany(slug), slug);
-  const events = useApiCall(() => getApiClient().getCompanyEvents(slug), slug);
-  const quote = useApiCall(() => getApiClient().getQuote(slug), slug);
-  const links = useApiCall(() => getApiClient().getGlobalLinks(slug), slug);
-  const patents = useApiCall(() => getApiClient().getCompanyPatents(slug), slug);
+  const company = useApiCall(() => getApiClient().getCompany(slug), slug, { cacheKey: `company:${slug}`, staleMs: 300_000 });
+  const events = useApiCall(() => getApiClient().getCompanyEvents(slug), slug, { cacheKey: `events:${slug}`, staleMs: 300_000 });
+  const quote = useApiCall(() => getApiClient().getQuote(slug), slug, { cacheKey: `quote:${slug}`, staleMs: 30_000 });
+  const links = useApiCall(() => getApiClient().getGlobalLinks(slug), slug, { cacheKey: `links:${slug}`, staleMs: 300_000 });
+  const patents = useApiCall(() => getApiClient().getCompanyPatents(slug), slug, { cacheKey: `patents:${slug}`, staleMs: 300_000 });
   const history = useApiCall(
     () => getApiClient().getPriceHistory(slug, historyDays),
     `${slug}:${historyDays}`,
+    { cacheKey: `history:${slug}:${historyDays}`, staleMs: 300_000 },
   );
 
   if (company.loading)

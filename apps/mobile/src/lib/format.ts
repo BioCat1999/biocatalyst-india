@@ -10,6 +10,25 @@ export function formatDate(iso: string | null | undefined): string {
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
+/**
+ * Recent timestamps read as "Just now" / "5m ago" / "3h ago" / "2d ago";
+ * anything a week or older falls back to formatDate.
+ */
+export function formatRelative(iso: string | null | undefined, now: number = Date.now()): string {
+  if (!iso) return "—";
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return iso;
+  const mins = Math.floor((now - t) / 60_000);
+  if (mins < 0) return formatDate(iso);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return formatDate(iso);
+}
+
 /** Compact percent like "+2.4%" / "-1.1%" / "—" for null. */
 export function formatPct(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) return "—";
