@@ -7,17 +7,17 @@
  * clients stay visually consistent.
  */
 export const colors = {
-  navy: "#0f2a43",
-  navy2: "#16395c",
-  teal: "#0e7c7b",
-  tealBright: "#13a39f",
-  tealSoft: "#e6f4f3",
-  ink: "#1c2733",
-  muted: "#5b6b7c",
+  navy: "#071b31",
+  navy2: "#0d2d4d",
+  teal: "#007f7a",
+  tealBright: "#00b5a6",
+  tealSoft: "#dcf8f2",
+  ink: "#102235",
+  muted: "#64748b",
   placeholder: "#8493a3",
-  navyText: "#b8c8d8",
-  line: "#dfe7ee",
-  bg: "#f4f7f9",
+  navyText: "#c5d8e8",
+  line: "#dce5ed",
+  bg: "#f4f7fa",
   inputBg: "#f8fafb",
   card: "#ffffff",
   amber: "#9a6a00",
@@ -29,7 +29,7 @@ export const colors = {
   white: "#ffffff",
 } as const;
 
-export const radius = 14;
+export const radius = 18;
 
 export const spacing = {
   xs: 4,

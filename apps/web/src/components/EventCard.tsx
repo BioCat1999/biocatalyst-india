@@ -7,7 +7,7 @@ import { formatDateTime, formatPct, mrClass } from "@/lib/format";
 export function EventCard({ event }: { event: EventCardT }) {
   const mr = event.marketReaction;
   return (
-    <div style={{ position: "relative" }}>
+    <div className="event-card-shell">
       <Link className="card" href={`/events/${event.id}`}>
         <div className="card-top" style={event.company ? { paddingRight: 44 } : undefined}>
           <EventTypeTag type={event.eventType} />
@@ -19,7 +19,7 @@ export function EventCard({ event }: { event: EventCardT }) {
           {event.drug && <span className="tag neutral">{event.drug.name}</span>}
           {event.indication && <span className="tag neutral">{event.indication}</span>}
         </div>
-        <h2>{event.headline}</h2>
+        <h2>{event.headline}<span className="card-arrow" aria-hidden="true">↗</span></h2>
         <p className="fact">{event.fact}</p>
         <p className="summary">{event.summary}</p>
         <div className="meta">
@@ -34,7 +34,7 @@ export function EventCard({ event }: { event: EventCardT }) {
         </div>
       </Link>
       {event.company && (
-        <div style={{ position: "absolute", top: 12, right: 12 }}>
+        <div className="event-follow">
           <FollowButton
             compact
             entityType="company"

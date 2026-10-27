@@ -27,25 +27,29 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="wrap topbar-inner">
             <Link className="brand" href="/">
               <span className="brand-mark" aria-hidden="true">
-                B
+                ✦
               </span>
-              Biocatalyst India
+              <span>Biocatalyst <em>India</em></span>
             </Link>
             <nav className="topnav" aria-label="Primary">
-              <Link href="/">Feed</Link>
+              <Link href="/">Signals</Link>
               <Link href="/companies">Companies</Link>
-              <Link href="/global">Global</Link>
-              <Link href="/insights" aria-label="AI intelligence dashboard">AI</Link>
-              <Link href="/ipos">IPOs</Link>
+              <Link href="/insights">Intelligence</Link>
               <Link href="/patents">Patents</Link>
-              <Link href="/explore">Explore</Link>
-              <Link href="/calendar">Calendar</Link>
-              <Link href="/compare">Compare</Link>
-              <Link href="/digest">Digest</Link>
-              <Link href="/search">Search</Link>
               <Link href="/watchlist">Watchlist</Link>
-              <Link href="/monitors">Monitors</Link>
-              <Link href="/library">Library</Link>
+              <details className="nav-more">
+                <summary>Explore <span aria-hidden="true">⌄</span></summary>
+                <div className="nav-more-menu">
+                  <Link href="/global">Global pharma</Link>
+                  <Link href="/ipos">IPO tracker</Link>
+                  <Link href="/calendar">Calendar</Link>
+                  <Link href="/compare">Compare</Link>
+                  <Link href="/digest">Digest</Link>
+                  <Link href="/monitors">Monitors</Link>
+                  <Link href="/library">Library</Link>
+                  <Link href="/explore">Explore diseases</Link>
+                </div>
+              </details>
             </nav>
             <div className="topbar-right">
               <SearchForm />

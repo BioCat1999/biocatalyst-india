@@ -53,16 +53,28 @@ export default async function Home({
 
   return (
     <>
-      <div className="page-head">
-        <h1>Catalyst Feed</h1>
-        <p>
-          Latest verified-style catalysts across covered India-linked
-          pharma/biotech companies — newest first.
-        </p>
-        <div className="seed-banner" role="note">
-          Events are ingested from public sources (trial registries, FDA,
-          company disclosures) and every card links to its source record.
+      <section className="feed-hero" aria-labelledby="feed-heading">
+        <div>
+          <p className="hero-kicker"><span aria-hidden="true" /> LIVE RESEARCH SIGNALS</p>
+          <h1 id="feed-heading">Know what moved<br />biopharma <i>first.</i></h1>
+          <p>
+            Source-linked clinical, regulatory and corporate catalysts for India-linked pharma.
+          </p>
         </div>
+        <div className="hero-stat" aria-label="Research principles">
+          <strong>Source-first</strong>
+          <span>Every signal links back to its evidence.</span>
+        </div>
+      </section>
+      <div className="feed-toolbar">
+        <div>
+          <p className="section-kicker">LATEST INTELLIGENCE</p>
+          <h2>Catalyst feed</h2>
+        </div>
+        <p className="feed-toolbar-note">Signal, context, provenance.</p>
+      </div>
+      <div className="seed-banner" role="note">
+        <span aria-hidden="true">◌</span> Events are ingested from public sources and every card links to its source record.
       </div>
       <Suspense>
         <FilterChips />
