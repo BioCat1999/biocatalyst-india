@@ -94,6 +94,20 @@ export function kindLabel(kind: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+/** Company directory categories (lib/company-categories ids). */
+const COMPANY_CATEGORY_STYLES: Record<string, CategoryStyle> = {
+  generics: { ...PALETTE.teal, icon: "pill" },
+  biosimilars: { ...PALETTE.blue, icon: "flask" },
+  "api-cdmo": { ...PALETTE.amber, icon: "factory" },
+  specialty: { ...PALETTE.violet, icon: "sparkles" },
+  vaccines: { ...PALETTE.green, icon: "shield-check" },
+  "consumer-health": { ...PALETTE.rose, icon: "star" },
+};
+
+export function companyCategoryStyle(id: string): CategoryStyle {
+  return COMPANY_CATEGORY_STYLES[id] ?? { ...PALETTE.slate, icon: "building" };
+}
+
 /** Inline CSS variables so a component can use var(--c) / var(--s). */
 export function styleVars(s: { color: string; soft: string }): CSSProperties {
   return { "--c": s.color, "--s": s.soft } as CSSProperties;
