@@ -8,12 +8,11 @@
  * Week and month fetch exactly their window from /api/v1/calendar
  * (from/to) and filter kinds in the browser so filter changes are instant.
  * Responses are cached per period and neighbouring periods are prefetched.
- * The view and period live in the URL (?view=week&date=2026-11-02) so links
- * are shareable and the back button works.
+ * The view and period are mirrored into the URL (?view=week&date=2026-11-02)
+ * so links are shareable.
  */
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Icon, type IconName } from "./Icon";
 import { kindLabel, kindStyle, styleVars } from "@/lib/categories";
 import {
@@ -104,15 +103,35 @@ function periodParams(p: Period) {
   return { from: p.from, to: p.to, limit: "500" };
 }
 
-export function CalendarView({ initialItems }: { initialItems: CalendarItem[] }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
-  const view = (["agenda", "week", "month"].includes(params.get("view") ?? "") ? params.get("view") : "agenda") as ViewMode;
-  const dateParam = params.get("date");
-  const anchor = useMemo(() => (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? fromDay(dateParam) : new Date()), [dateParam]);
+function parseView(v: string | null | undefined): ViewMode {
+  return v === "week" || v === "month" ? v : "agenda";
+}
+
+function parseDate(d: string | null | undefined): string | null {
+  return d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null;
+}
+
+export function CalendarView({
+  initialItems,
+  initialView,
+  initialDate,
+}: {
+  initialItems: CalendarItem[];
+  initialView?: string;
+  initialDate?: string;
+}) {
+  // View and period are local state mirrored into the URL with
+  // history.replaceState: switching is instant (no server round trip) and
+  // links stay shareable.
+  const [view, setView] = useState<ViewMode>(() => parseView(initialView));
+  const [dateParam, setDateParam] = useState<string | null>(() => parseDate(initialDate));
+  const anchor = useMemo(() => (dateParam ? fromDay(dateParam) : new Date()), [dateParam]);
   const [kind, setKind] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  // "Today" depends on the viewer's timezone (servers run on UTC, readers are
+  // mostly IST), so date-dependent output renders only after mount.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const today = toDay(new Date());
 
   if (!cache.has("agenda:")) cache.set("agenda:", initialItems);
@@ -126,16 +145,20 @@ export function CalendarView({ initialItems }: { initialItems: CalendarItem[] })
 
   const navigate = useCallback(
     (next: { view?: ViewMode; date?: string | null }) => {
-      const sp = new URLSearchParams(params.toString());
       const v = next.view ?? view;
+      const d = v === "agenda" || next.date === null ? null : next.date ?? dateParam;
+      setView(v);
+      setDateParam(d);
+      setSelected(null);
+      const sp = new URLSearchParams(window.location.search);
       if (v === "agenda") sp.delete("view");
       else sp.set("view", v);
-      if (next.date === null || v === "agenda") sp.delete("date");
-      else if (next.date) sp.set("date", next.date);
-      setSelected(null);
-      router.replace(`${pathname}${sp.toString() ? `?${sp}` : ""}`, { scroll: false });
+      if (d) sp.set("date", d);
+      else sp.delete("date");
+      const qs = sp.toString();
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
     },
-    [params, pathname, router, view],
+    [view, dateParam],
   );
 
   useEffect(() => {
@@ -157,7 +180,9 @@ export function CalendarView({ initialItems }: { initialItems: CalendarItem[] })
           setError(null);
         }
       })
-      .catch((e: Error) => alive && setError(e.message))
+      .catch((e: Error) => {
+        if (alive) setError(e.message);
+      })
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
@@ -217,7 +242,7 @@ export function CalendarView({ initialItems }: { initialItems: CalendarItem[] })
         </div>
         <div className="segmented" role="group" aria-label="Calendar view">
           {VIEWS.map((v) => (
-            <button key={v.value} type="button" aria-pressed={view === v.value} onClick={() => navigate({ view: v.value, date: null })}>
+            <button key={v.value} type="button" aria-pressed={view === v.value} onClick={() => navigate({ view: v.value, date: v.value === "week" && dateParam ? toDay(startOfWeek(fromDay(dateParam))) : dateParam })}>
               <Icon name={v.icon} size={15} /> {v.label}
             </button>
           ))}
@@ -231,7 +256,7 @@ export function CalendarView({ initialItems }: { initialItems: CalendarItem[] })
               <Icon name="chevron-left" size={18} />
             </button>
           )}
-          <h2 aria-live="polite">{title}</h2>
+          <h2 aria-live="polite">{mounted ? title : " "}</h2>
           {view !== "agenda" && (
             <>
               <button type="button" className="icon-btn" aria-label="Next" onClick={() => step(1)}>
@@ -276,7 +301,7 @@ export function CalendarView({ initialItems }: { initialItems: CalendarItem[] })
           <span className="empty-icon"><Icon name="alert" size={24} /></span>
           <p>{error}</p>
         </div>
-      ) : !items ? (
+      ) : !items || !mounted ? (
         <div className="agenda">
           {[0, 1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 86, borderRadius: 16, marginBottom: 8 }} />)}
         </div>
