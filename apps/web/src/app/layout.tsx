@@ -3,7 +3,9 @@ import Link from "next/link";
 import Script from "next/script";
 import { SearchForm } from "@/components/SearchForm";
 import { AuthNav } from "@/components/AuthNav";
+import { BottomNav, TopNav } from "@/components/NavLinks";
 import "./globals.css";
+import "./design.css";
 
 export const metadata: Metadata = {
   title: "Biocatalyst India — Pharma & Biotech Catalyst Intelligence",
@@ -27,30 +29,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="wrap topbar-inner">
             <Link className="brand" href="/">
               <span className="brand-mark" aria-hidden="true">
-                ✦
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                </svg>
               </span>
               <span>Biocatalyst <em>India</em></span>
             </Link>
-            <nav className="topnav" aria-label="Primary">
-              <Link href="/">Signals</Link>
-              <Link href="/companies">Companies</Link>
-              <Link href="/insights">Intelligence</Link>
-              <Link href="/patents">Patents</Link>
-              <Link href="/watchlist">Watchlist</Link>
-              <details className="nav-more">
-                <summary>Explore <span aria-hidden="true">⌄</span></summary>
-                <div className="nav-more-menu">
-                  <Link href="/global">Global pharma</Link>
-                  <Link href="/ipos">IPO tracker</Link>
-                  <Link href="/calendar">Calendar</Link>
-                  <Link href="/compare">Compare</Link>
-                  <Link href="/digest">Digest</Link>
-                  <Link href="/monitors">Monitors</Link>
-                  <Link href="/library">Library</Link>
-                  <Link href="/explore">Explore diseases</Link>
-                </div>
-              </details>
-            </nav>
+            <TopNav />
             <div className="topbar-right">
               <SearchForm />
               <AuthNav />
@@ -61,6 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main>
           <div className="wrap">{children}</div>
         </main>
+        <BottomNav />
 
         <footer className="footer">
           <div className="wrap">

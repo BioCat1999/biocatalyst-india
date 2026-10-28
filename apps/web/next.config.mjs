@@ -45,7 +45,17 @@ const nextConfig = {
     },
   },
   async headers() {
-    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
+    // `next dev` evaluates code for fast refresh, so the dev server alone
+    // allows 'unsafe-eval'. Production headers are unchanged.
+    const headers =
+      process.env.NODE_ENV === "development"
+        ? SECURITY_HEADERS.map((h) =>
+            h.key === "Content-Security-Policy"
+              ? { ...h, value: h.value.replace("script-src 'self' 'unsafe-inline'", "script-src 'self' 'unsafe-inline' 'unsafe-eval'") }
+              : h,
+          )
+        : SECURITY_HEADERS;
+    return [{ source: "/:path*", headers }];
   },
 };
 export default nextConfig;

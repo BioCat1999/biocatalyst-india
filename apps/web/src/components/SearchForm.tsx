@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Icon } from "./Icon";
 
 /** Top-bar search box: navigates to /search?q=… */
 export function SearchForm({ initial = "" }: { initial?: string }) {
@@ -15,6 +16,7 @@ export function SearchForm({ initial = "" }: { initial?: string }) {
         router.push(`/search?q=${encodeURIComponent(q.trim())}`);
       }}
     >
+      <Icon name="search" size={15} className="searchbox-icon" />
       <input
         type="search"
         value={q}

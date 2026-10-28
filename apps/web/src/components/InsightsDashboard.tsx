@@ -156,8 +156,8 @@ function Dashboard({ data }: { data: Insights }) {
         <div className="insight-heading"><div><span>FORWARD CALENDAR</span><h2>Upcoming milestones</h2></div></div>
         {data.upcoming.length === 0 ? <p className="muted">No dated milestones in the next 18 months.</p> : (
           <ol className="milestone-list">
-            {data.upcoming.map((item) => (
-              <li className={`milestone milestone-${item.kind}`} key={`${item.kind}-${item.date}-${item.title}`}>
+            {data.upcoming.map((item, i) => (
+              <li className={`milestone milestone-${item.kind}`} key={`${item.kind}-${item.date}-${item.title}-${i}`}>
                 <time>{new Date(`${item.date}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</time>
                 <div>
                   <span>{item.kind}</span>

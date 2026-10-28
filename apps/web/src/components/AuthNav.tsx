@@ -9,6 +9,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { Icon } from "./Icon";
 
 interface SessionState {
   loading: boolean;
@@ -74,7 +75,7 @@ export function AuthNav() {
         aria-label={state.unread > 0 ? `Alerts, ${state.unread} unread` : "Alerts"}
         title="Notification center"
       >
-        <span aria-hidden="true">🔔</span>
+        <Icon name="bell" size={17} />
         {state.unread > 0 && (
           <span className="bell-badge" aria-hidden="true">
             {state.unread > 99 ? "99+" : state.unread}
