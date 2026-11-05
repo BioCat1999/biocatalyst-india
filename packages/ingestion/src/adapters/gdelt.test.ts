@@ -180,6 +180,17 @@ describe("GdeltAdapter.fetchSince", () => {
   });
 });
 
+describe("GDELT time budget", () => {
+  it("stops starting new queries once the budget is spent and holds the cursor", async () => {
+    const fetchImpl = stubFetch([article()]);
+    const adapter = new GdeltAdapter(fetchImpl, noWait, -1); // budget already spent after query 1
+    const docs = await adapter.fetchSince("2026-09-20T00:00:00.000Z");
+    expect((fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
+    expect(docs).toHaveLength(1);
+    expect(adapter.getNextCursor()).toBe("2026-09-20T00:00:00.000Z");
+  });
+});
+
 describe("GDELT query building", () => {
   it("parenthesises OR groups (GDELT rejects bare ORs)", () => {
     expect(buildQuery(["Moderna", "Pfizer"])).toBe('("Moderna" OR "Pfizer") sourcelang:english');

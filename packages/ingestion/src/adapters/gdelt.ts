@@ -59,6 +59,12 @@ const PHRASES_PER_QUERY = 5;
 const REQUEST_SPACING_MS = 6_000;
 /** GDELT's 429 penalty outlasts the default 2s/4s backoff. */
 const RETRY_DELAY_MS = 10_000;
+/**
+ * Stop starting new groups after this long so the run returns (and records
+ * its errors) well inside the 300s serverless limit. Unfetched groups are
+ * retried next run because the cursor is held.
+ */
+const RUN_BUDGET_MS = 150_000;
 const REQUEST_TIMEOUT_MS = 20_000;
 const FIRST_RUN_LOOKBACK_DAYS = 7;
 const MAX_LOOKBACK_DAYS = 90; // DOC API covers roughly the last 3 months
@@ -161,6 +167,7 @@ async function getJson(fetchImpl: typeof fetch, url: string): Promise<unknown> {
     userAgent: USER_AGENT,
     timeoutMs: REQUEST_TIMEOUT_MS,
     retryDelayMs: RETRY_DELAY_MS,
+    maxAttempts: 2,
   });
 }
 
@@ -195,7 +202,11 @@ export class GdeltAdapter implements SourceAdapter {
   private lastCursor: Cursor = "";
 
   /** `fetchImpl` and `wait` are injectable so tests run without network or delays. */
-  constructor(fetchImpl?: typeof fetch, wait?: (ms: number) => Promise<void>) {
+  constructor(
+    fetchImpl?: typeof fetch,
+    wait?: (ms: number) => Promise<void>,
+    private readonly budgetMs: number = RUN_BUDGET_MS,
+  ) {
     this.fetchImpl = fetchImpl ?? globalThis.fetch;
     // GDELT_REQUEST_SPACING_MS=0 lets runner tests skip the pacing.
     const off = process.env.GDELT_REQUEST_SPACING_MS === "0";
@@ -213,7 +224,13 @@ export class GdeltAdapter implements SourceAdapter {
     // paced to GDELT's rate limit. Per-URL dedupe absorbs any overlap.
     const groups = [...chunkPhrases(NEWS_PHRASES), ...chunkPhrases(GLOBAL_NEWS_PHRASES)];
     const errors: unknown[] = [];
+    const started = Date.now();
+    let succeeded = 0;
     for (const [i, phrases] of groups.entries()) {
+      if (i > 0 && Date.now() - started > this.budgetMs) {
+        errors.push(new Error(`time budget reached after ${i} of ${groups.length} GDELT queries`));
+        break;
+      }
       if (i > 0) await this.wait(REQUEST_SPACING_MS);
       try {
         const page = (await getJson(
@@ -221,12 +238,15 @@ export class GdeltAdapter implements SourceAdapter {
           buildQueryUrl(phrases, new Date(since), now),
         )) as { articles?: GdeltArticle[] };
         for (const a of page.articles ?? []) data.articles.push(a);
+        succeeded += 1;
       } catch (err) {
         errors.push(err);
+        console.warn(`[gdelt] query ${i + 1}/${groups.length} failed: ${String(err)}`);
       }
     }
     // Every group failed: surface it so the runner records a failed run.
-    if (errors.length === groups.length) throw errors[0];
+    // No query succeeded: surface it so the runner records a failed run.
+    if (succeeded === 0) throw errors[0];
 
     const retrievedAt = now.toISOString();
     const docs: RawSourceDocument[] = [];
