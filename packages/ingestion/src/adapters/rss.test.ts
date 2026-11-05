@@ -133,6 +133,32 @@ describe("classifyPressRelease", () => {
   });
 });
 
+describe("classifyPressRelease — wire phrasing (Drugs.com, 2026-11-05)", () => {
+  it.each([
+    ["Jemperli (dostarlimab-gxly) Approved in US as First and Only Immunotherapy", "regulatory_approval"],
+    ["Ultomiris Received Accelerated Approval in the US as First and Only C5 Inhibitor", "regulatory_approval"],
+    ["U.S. Food and Drug Administration Approves Expanded Indication for Bristol Myers Squibb's Breyanzi", "regulatory_approval"],
+    ["Sonesitatug Vedotin Reduced the Risk of Death by 42% in 2nd- and Later-Line Gastric Cancer", "clinical_trial_result"],
+    ["Takeda Announces TAK-921 Demonstrated Statistically Significant Improvement", "clinical_trial_result"],
+    ["Novartis Remibrutinib Delivered Comprehensive Disease Control in Phase III Study", "clinical_trial_result"],
+    ["AbbVie's Temab-A Receives Two Breakthrough Therapy Designations", "company_pipeline_update"],
+    ["Efzimfotase Alfa Granted Priority Review in the US", "regulatory_submission"],
+    ["Novo Provides Update on the Denecimig Biologics License Application (BLA) in the US", "regulatory_submission"],
+    ["CHMP Adopts Positive Opinion for Leqembi Subcutaneous Formulation", "regulatory_committee_update"],
+    ["Lilly Presents First Clinical Data in Platinum-Sensitive Ovarian Cancer", "clinical_trial_result"],
+    ["Iza-Bren Reduced Risk of Disease Progression or Death by 59%", "clinical_trial_result"],
+    ["Lilly's Retatrutide Delivered Greater A1C Reduction Than Placebo", "clinical_trial_result"],
+    ["Genentech’s Divarasib Demonstrated Best-In-Class Efficacy", "clinical_trial_result"],
+  ])("%s → %s", (title, expected) => {
+    expect(classifyPressRelease(title)).toBe(expected);
+  });
+
+  it("still ignores board approvals and earnings", () => {
+    expect(classifyPressRelease("Board approves interim dividend for FY27")).toBeNull();
+    expect(classifyPressRelease("Q2 FY27 results: revenue up 12%")).toBeNull();
+  });
+});
+
 describe("PressRssAdapter", () => {
   it("emits docs only for items newer than the cursor", async () => {
     const xml = feedXml(

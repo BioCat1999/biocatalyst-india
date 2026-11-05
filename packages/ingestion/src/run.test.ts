@@ -521,6 +521,12 @@ describe("multi-source ingestion (M7)", () => {
             text: async () => `<?xml version="1.0"?><rss version="2.0"><channel></channel></rss>`,
           };
         }
+        if (u.includes("drugs.com")) {
+          return {
+            ok: true,
+            text: async () => `<?xml version="1.0"?><rss version="2.0"><channel></channel></rss>`,
+          };
+        }
         if (u.includes("prnewswire.com")) {
           return {
             ok: true,
@@ -549,17 +555,17 @@ describe("multi-source ingestion (M7)", () => {
   });
 
   it("runAllIngestion runs every registered adapter with per-source metrics", async () => {
-    expect(listSourceNames()).toEqual(["ctri-fixture", "bse-fixture", "pubmed-fixture", "ctgov", "gdelt", "press-rss", "prnewswire", "openfda", "pubmed", "sebi-rss"]);
+    expect(listSourceNames()).toEqual(["ctri-fixture", "bse-fixture", "pubmed-fixture", "ctgov", "gdelt", "press-rss", "prnewswire", "drugs-com", "openfda", "pubmed", "sebi-rss"]);
     const before = await eventCount();
     const all = await runAllIngestion(pool);
-    expect(all).toHaveLength(10);
+    expect(all).toHaveLength(11);
     const byName = Object.fromEntries(all.map((m) => [m.sourceName, m]));
     for (const m of all) {
       expect(m.status).toBe("success");
       expect(m.error).toBeNull();
     }
     // Live sources are stubbed to empty in tests — they succeed with no docs.
-    for (const name of ["ctgov", "gdelt", "press-rss", "prnewswire", "openfda", "pubmed", "sebi-rss"]) {
+    for (const name of ["ctgov", "gdelt", "press-rss", "prnewswire", "drugs-com", "openfda", "pubmed", "sebi-rss"]) {
       expect(byName[name].docsFetched).toBe(0);
       expect(byName[name].eventsCreated).toBe(0);
     }
@@ -580,7 +586,7 @@ describe("multi-source ingestion (M7)", () => {
     expect(byName["pubmed-fixture"].eventsMerged).toBe(1);
     expect(byName["pubmed-fixture"].newestSourceTs).toBe("2026-09-28T18:30:00.000Z");
     expect(await eventCount()).toBe(before + 7);
-  });
+  }, 20_000); // live adapters pause between feeds
 
   it("re-running all sources is idempotent (no duplicates, no new merges)", async () => {
     const before = await eventCount();
@@ -592,7 +598,7 @@ describe("multi-source ingestion (M7)", () => {
       expect(m.eventsMerged).toBe(0);
     }
     expect(await eventCount()).toBe(before);
-  });
+  }, 20_000); // live adapters pause between feeds
 
   it("per-source health (spec §20) covers all three sources", async () => {
     const health = await getSourceHealth(pool);

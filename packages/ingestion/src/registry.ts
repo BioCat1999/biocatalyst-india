@@ -15,6 +15,7 @@
  *   - `press-rss`: company press-release RSS feeds (no API keys)
  *   - `prnewswire`: PR Newswire category wire feeds (no API keys) —
  *     multi-company, per-item attribution; needs hourly polling
+ *   - `drugs-com`: Drugs.com approval / filing / trial feeds (global companies)
  *   - `openfda`: FDA drug approvals + recalls (no API key)
  *   - `pubmed`: NCBI PubMed affiliation search (no API key)
  *   - `sebi-rss`: official SEBI enforcement RSS (no API key)
@@ -28,6 +29,7 @@ import { CtgovAdapter } from "./adapters/ctgov.js";
 import { GdeltAdapter } from "./adapters/gdelt.js";
 import { PressRssAdapter } from "./adapters/rss.js";
 import { PrNewswireAdapter } from "./adapters/prnewswire.js";
+import { DrugsComAdapter } from "./adapters/drugscom.js";
 import { OpenFdaAdapter } from "./adapters/fda.js";
 import { PubmedAdapter } from "./adapters/pubmed-live.js";
 import { SebiRssAdapter } from "./adapters/sebi.js";
@@ -41,6 +43,7 @@ export const ADAPTER_FACTORIES: Record<string, () => SourceAdapter> = {
   gdelt: () => new GdeltAdapter(),
   "press-rss": () => new PressRssAdapter(),
   prnewswire: () => new PrNewswireAdapter(),
+  "drugs-com": () => new DrugsComAdapter(),
   openfda: () => new OpenFdaAdapter(),
   pubmed: () => new PubmedAdapter(),
   "sebi-rss": () => new SebiRssAdapter(),

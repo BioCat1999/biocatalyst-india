@@ -104,30 +104,50 @@ export function attributeCompany(
   return null;
 }
 
-function buildCatalystSummary(company: string, eventType: string): string {
+function buildCatalystSummary(company: string, eventType: string, publisher: string): string {
   return (
-    `Wire press release via ${PUBLISHER} classified as ${eventType.replaceAll("_", " ")} for ${company}. ` +
+    `Wire press release via ${publisher} classified as ${eventType.replaceAll("_", " ")} for ${company}. ` +
     `Company announcements can move the stock when the development was not already anticipated. ` +
     `Not investment advice.`
   );
 }
 
+/** What differs between wire-style feed sources that share this adapter. */
+export interface WireSourceConfig {
+  sourceName: string;
+  publisher: string;
+  feeds: string[];
+  firstRunLookbackDays: number;
+}
+
+const PRNEWSWIRE_CONFIG: WireSourceConfig = {
+  sourceName: PRNEWSWIRE_SOURCE_NAME,
+  publisher: PUBLISHER,
+  feeds: PRNEWSWIRE_FEEDS,
+  firstRunLookbackDays: FIRST_RUN_LOOKBACK_DAYS,
+};
+
 export class PrNewswireAdapter implements SourceAdapter {
-  readonly sourceName: string = PRNEWSWIRE_SOURCE_NAME;
+  readonly sourceName: string;
   private readonly fetchImpl: typeof fetch;
   private readonly feeds: string[];
+  private readonly publisher: string;
+  private readonly lookbackDays: number;
   private lastCursor: Cursor = "";
 
   /** `fetchImpl` and `feeds` are injectable so tests can stub the network. */
-  constructor(fetchImpl?: typeof fetch, feeds?: string[]) {
+  constructor(fetchImpl?: typeof fetch, feeds?: string[], config: WireSourceConfig = PRNEWSWIRE_CONFIG) {
     this.fetchImpl = fetchImpl ?? globalThis.fetch;
-    this.feeds = feeds ?? PRNEWSWIRE_FEEDS;
+    this.sourceName = config.sourceName;
+    this.publisher = config.publisher;
+    this.lookbackDays = config.firstRunLookbackDays;
+    this.feeds = feeds ?? config.feeds;
   }
 
   async fetchSince(cursor: Cursor): Promise<RawSourceDocument[]> {
     const now = new Date();
     const since =
-      cursor || new Date(now.getTime() - FIRST_RUN_LOOKBACK_DAYS * 86_400_000).toISOString();
+      cursor || new Date(now.getTime() - this.lookbackDays * 86_400_000).toISOString();
     const retrievedAt = now.toISOString();
     const docs: RawSourceDocument[] = [];
     const seen = new Set<string>();
@@ -209,9 +229,9 @@ export class PrNewswireAdapter implements SourceAdapter {
         headline: raw.title,
         factualSummary:
           raw.description && raw.description.length > 0
-            ? `${raw.title} ${raw.description.slice(0, 500)} (announced via ${PUBLISHER} on ${date}).`
-            : `${raw.title} (announced via ${PUBLISHER} on ${date}).`,
-        catalystSummary: buildCatalystSummary(company, eventType ?? "unclassified"),
+            ? `${raw.title} ${raw.description.slice(0, 500)} (announced via ${this.publisher} on ${date}).`
+            : `${raw.title} (announced via ${this.publisher} on ${date}).`,
+        catalystSummary: buildCatalystSummary(company, eventType ?? "unclassified", this.publisher),
         // The wire release is the company's own announcement (primary).
         // Auto-publish (0.9) requires BOTH a regulator-named approval
         // AND headline attribution; body-attributed items and all other
@@ -225,7 +245,7 @@ export class PrNewswireAdapter implements SourceAdapter {
         companyNames: [company],
         drugNames: drug ? [drug] : [],
         sourceTitle: raw.title,
-        publisher: PUBLISHER,
+        publisher: this.publisher,
         isPrimary: true,
         fingerprint: eventFingerprint({
           sourceName: this.sourceName,

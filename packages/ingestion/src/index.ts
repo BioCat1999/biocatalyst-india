@@ -54,6 +54,7 @@ export {
   attributeCompany,
   itemLanguage,
 } from "./adapters/prnewswire.js";
+export { DrugsComAdapter, DRUGSCOM_FEEDS, DRUGSCOM_SOURCE_NAME } from "./adapters/drugscom.js";
 export {
   PubmedAdapter,
   PUBMED_SOURCE_NAME,

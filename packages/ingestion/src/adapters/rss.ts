@@ -159,13 +159,28 @@ export function classifyPressRelease(title: string): string | null {
   // application type, so "board approves dividend" doesn't qualify.
   if (
     (/\bapprov\w*/.test(t) || has("receives approval", "granted approval", "approval granted")) &&
-    has("usfda", "u.s. fda", "fda", "ema", "cdsco", "dcgi", "mhra", "health canada", "nda", "anda", "bla", "snda")
+    has(
+      "usfda", "u.s. fda", "fda", "food and drug administration", "ema", "european commission",
+      "cdsco", "dcgi", "mhra", "health canada", "nda", "anda", "bla", "snda",
+      // Wire phrasing that names the market instead of the regulator.
+      "approved in the u.s", "approved in u.s", "approved in the us", "approved in us",
+      "accelerated approval",
+    )
   ) {
     return "regulatory_approval";
   }
+  // Advisory committees / CHMP opinions precede approvals.
+  if (has("chmp", "positive opinion", "advisory committee")) {
+    return "regulatory_committee_update";
+  }
   // Regulatory submission.
-  if (/\b(nda|anda|bla|maa|snda)\b/.test(t) && has("fil", "submi", "accept")) {
+  if (/\b(nda|anda|bla|maa|snda)\b/.test(t) && has("fil", "submi", "accept", "update")) {
     return "regulatory_submission";
+  }
+  if (has("priority review")) return "regulatory_submission";
+  // Designations are pipeline news (the taxonomy has no designation type).
+  if (has("breakthrough therapy", "fast track", "orphan drug designation")) {
+    return "company_pipeline_update";
   }
   // Trial readouts.
   if (has("primary endpoint") && has("met", "achieved", "demonstrated")) {
@@ -173,7 +188,29 @@ export function classifyPressRelease(title: string): string | null {
   }
   if (
     has("phase 1", "phase 2", "phase 3", "phase i", "phase ii", "phase iii", "clinical trial", "clinical study") &&
-    has("result", "readout", "data", "endpoint", "efficacy")
+    has("result", "readout", "data", "endpoint", "efficacy", "delivered", "demonstrated", "showed", "shows")
+  ) {
+    return "clinical_trial_result";
+  }
+  // Outcome headlines without a phase keyword ("Reduced the Risk of Death
+  // by 42%", "Demonstrated Statistically Significant…").
+  if (
+    has(
+      "statistically significant",
+      "reduced the risk",
+      "overall survival",
+      "progression-free survival",
+      "topline results",
+      "tumor response rate",
+    )
+  ) {
+    return "clinical_trial_result";
+  }
+  // Congress data headlines ("Presents Data…", "New Data… Show…",
+  // "Delivered Greater A1C Reduction…").
+  if (
+    has("presents data", "presents new data", "clinical data", "new data", "reduced risk") ||
+    (has("demonstrat", "delivered", "show") && has("efficacy", "reduction", "weight loss", "response rate"))
   ) {
     return "clinical_trial_result";
   }
