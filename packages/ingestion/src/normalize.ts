@@ -84,6 +84,23 @@ export function crossSourceKey(parts: { registry: string; registryTrialId: strin
     .digest("hex");
 }
 
+/**
+ * Cross-source key for a company's wire press release. PR Newswire and
+ * Drugs.com republish the same release under the same headline, so
+ * company + normalised headline identifies it across sources. Shares the
+ * `events.cross_source_key` column with `crossSourceKey` (distinct prefix).
+ */
+export function wireReleaseKey(parts: { company: string; headline: string }): string {
+  const headline = parts.headline
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  return createHash("sha256")
+    .update(`wire-release|${parts.company}|${headline}`)
+    .digest("hex");
+}
+
 /** Text or null — never an empty/whitespace string. */
 export function asText(value: unknown): string | null {
   if (typeof value !== "string") return null;

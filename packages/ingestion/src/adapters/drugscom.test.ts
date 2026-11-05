@@ -5,6 +5,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import { DrugsComAdapter, DRUGSCOM_FEEDS, DRUGSCOM_SOURCE_NAME } from "./drugscom.js";
+import { PrNewswireAdapter } from "./prnewswire.js";
 
 function item(title: string, description: string, pubDate: string, slug: string): string {
   return `<item><title>${title}</title><link>https://www.drugs.com/newdrugs/${slug}.html</link><description>${description}</description><pubDate>${pubDate}</pubDate></item>`;
@@ -71,5 +72,24 @@ describe("DrugsComAdapter", () => {
       ["https://www.drugs.com/feeds/new_drug_approvals.xml"],
     );
     expect(await adapter.fetchSince("")).toHaveLength(1);
+  });
+
+  it("gives the same release from PR Newswire and Drugs.com one cross-source key", async () => {
+    const release = (date: string) =>
+      item(
+        "AbbVie Submits Biologics License Application (BLA) for Etentamig to U.S. FDA",
+        "NORTH CHICAGO, Ill., Oct. 27, 2026 /PRNewswire/ -- AbbVie (NYSE: ABBV) today announced...",
+        date,
+        "abbvie-etentamig",
+      );
+    const dc = new DrugsComAdapter(stub(feed(release("Tue, 27 Oct 2026 19:10:44 +0000"))), ["https://www.drugs.com/feeds/new_drug_applications.xml"]);
+    const pr = new PrNewswireAdapter(stub(feed(release("Tue, 27 Oct 2026 12:00:00 +0000"))), ["https://www.prnewswire.com/rss/x.rss"]);
+    const [dcDoc] = await dc.fetchSince("2026-10-01T00:00:00.000Z");
+    const [prDoc] = await pr.fetchSince("2026-10-01T00:00:00.000Z");
+    const [a] = await dc.normalize(dcDoc);
+    const [b] = await pr.normalize(prDoc);
+    expect(a.crossSourceKey).toBeTruthy();
+    expect(a.crossSourceKey).toBe(b.crossSourceKey);
+    expect(a.fingerprint).not.toBe(b.fingerprint);
   });
 });

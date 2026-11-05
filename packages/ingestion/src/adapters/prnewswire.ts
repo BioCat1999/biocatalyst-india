@@ -57,6 +57,7 @@ import {
   canonicalizeUrl,
   contentHash,
   eventFingerprint,
+  wireReleaseKey,
 } from "../normalize.js";
 import { extractRegulatoryMilestones } from "../milestones.js";
 import { matchCompanyNameBounded, matchDrugNameBounded } from "./company-map.js";
@@ -254,6 +255,8 @@ export class PrNewswireAdapter implements SourceAdapter {
           entityKey: company,
         }),
         rawSnapshot: raw,
+        // The same release reaches us via PR Newswire and Drugs.com: merge.
+        crossSourceKey: wireReleaseKey({ company, headline: raw.title }),
         calendarMilestones: extractRegulatoryMilestones(
           `${raw.title} ${raw.description ?? ""}`,
           company,
