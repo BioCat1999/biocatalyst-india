@@ -9,6 +9,9 @@ import {
 } from "@biocatalyst/ingestion";
 import { isAdminRequest, isCronRequest } from "@/lib/admin";
 
+// GDELT paces its requests to the upstream rate limit (about a minute per run).
+export const maxDuration = 300;
+
 /**
  * POST /api/v1/admin/ingestion/run (spec §12).
  *

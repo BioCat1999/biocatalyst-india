@@ -504,6 +504,7 @@ describe("multi-source ingestion (M7)", () => {
   // Live adapters must not hit the network in tests:
   // stub global fetch to return empty result sets for their API shapes.
   beforeEach(() => {
+    vi.stubEnv("GDELT_REQUEST_SPACING_MS", "0");
     vi.stubGlobal(
       "fetch",
       (async (url: unknown) => {
@@ -544,6 +545,7 @@ describe("multi-source ingestion (M7)", () => {
   });
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it("runAllIngestion runs every registered adapter with per-source metrics", async () => {

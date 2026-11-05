@@ -156,7 +156,7 @@ describe("PressRssAdapter", () => {
       ),
     );
     const adapter = new PressRssAdapter(stubFetch(xml), [FEED]);
-    const [doc] = await adapter.fetchSince("");
+    const [doc] = await adapter.fetchSince("2026-09-01T00:00:00.000Z");
     const [c] = await adapter.normalize(doc);
     expect(c.sourceName).toBe(PRESS_RSS_SOURCE_NAME);
     expect(c.eventType).toBe("regulatory_approval");
@@ -175,7 +175,7 @@ describe("PressRssAdapter", () => {
       ),
     );
     const adapter = new PressRssAdapter(stubFetch(xml), [FEED]);
-    const [doc] = await adapter.fetchSince("");
+    const [doc] = await adapter.fetchSince("2026-09-01T00:00:00.000Z");
     const [c] = await adapter.normalize(doc);
     expect(c.eventType).toBe("company_pipeline_update");
     expect(c.confidence).toBe(0.8);
@@ -186,7 +186,7 @@ describe("PressRssAdapter", () => {
       itemXml("Sun Pharma reports Q1FY27 results", "https://www.sunpharma.com/press/q1/", "Wed, 30 Sep 2026 08:26:53 +0000"),
     );
     const adapter = new PressRssAdapter(stubFetch(xml), [FEED]);
-    const [doc] = await adapter.fetchSince("");
+    const [doc] = await adapter.fetchSince("2026-09-01T00:00:00.000Z");
     const [c] = await adapter.normalize(doc);
     expect(c.eventType).toBeNull();
   });
@@ -196,7 +196,7 @@ describe("PressRssAdapter", () => {
     // retry backoff), keeping this test fast.
     const failing = vi.fn(async () => new Response("nope", { status: 404 }));
     const adapter = new PressRssAdapter(failing, [FEED]);
-    await expect(adapter.fetchSince("")).rejects.toThrow();
+    await expect(adapter.fetchSince("2026-09-01T00:00:00.000Z")).rejects.toThrow();
 
     const okXml = feedXml(
       itemXml("Good", "https://www.sunpharma.com/press/good/", "Wed, 30 Sep 2026 08:26:53 +0000"),
@@ -212,7 +212,7 @@ describe("PressRssAdapter", () => {
         FEED,
       ],
     );
-    const docs = await mixed.fetchSince("");
+    const docs = await mixed.fetchSince("2026-09-01T00:00:00.000Z");
     expect(docs).toHaveLength(1);
   });
 });

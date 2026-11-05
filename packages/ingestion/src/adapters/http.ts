@@ -11,6 +11,8 @@ export interface FetchJsonOptions {
   userAgent: string;
   timeoutMs?: number;
   maxAttempts?: number;
+  /** First retry delay; doubles each attempt. Defaults to 2s. */
+  retryDelayMs?: number;
 }
 
 export interface FetchTextOptions extends FetchJsonOptions {
@@ -66,7 +68,7 @@ export async function fetchJson(
       clearTimeout(timer);
     }
     // Exponential backoff: 2s, 4s, … before the next attempt.
-    await sleep(2000 * 2 ** (attempt - 1));
+    await sleep((opts.retryDelayMs ?? 2000) * 2 ** (attempt - 1));
   }
   throw lastError;
 }

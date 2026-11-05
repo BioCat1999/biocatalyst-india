@@ -48,7 +48,17 @@ import { fetchJson } from "./http.js";
 
 export const GDELT_SOURCE_NAME = "gdelt";
 const API_URL = "https://api.gdeltproject.org/api/v2/doc/doc";
-const MAX_RECORDS = 100;
+const MAX_RECORDS = 250; // DOC API maximum
+/**
+ * Companies per query. One OR of every name returns the 250 most relevant
+ * articles overall, so high-volume names (Pfizer, Merck, GSK) crowd out the
+ * rest. Small groups give every company a share of the results.
+ */
+const PHRASES_PER_QUERY = 5;
+/** GDELT allows one request every 5 seconds per IP; stay above that. */
+const REQUEST_SPACING_MS = 6_000;
+/** GDELT's 429 penalty outlasts the default 2s/4s backoff. */
+const RETRY_DELAY_MS = 10_000;
 const REQUEST_TIMEOUT_MS = 20_000;
 const FIRST_RUN_LOOKBACK_DAYS = 7;
 const MAX_LOOKBACK_DAYS = 90; // DOC API covers roughly the last 3 months
@@ -133,12 +143,13 @@ function gdeltTimestamp(d: Date): string {
 }
 
 function buildQueryUrl(phrases: string[], start: Date, end: Date): string {
-  const query = phrases.map((p) => `"${p}"`).join(" OR ");
+  const query = buildQuery(phrases);
   const params = new URLSearchParams({
     query,
     mode: "artlist",
     format: "json",
     maxrecords: String(MAX_RECORDS),
+    sort: "DateDesc",
     startdatetime: gdeltTimestamp(start),
     enddatetime: gdeltTimestamp(end),
   });
@@ -146,7 +157,27 @@ function buildQueryUrl(phrases: string[], start: Date, end: Date): string {
 }
 
 async function getJson(fetchImpl: typeof fetch, url: string): Promise<unknown> {
-  return fetchJson(fetchImpl, url, { userAgent: USER_AGENT, timeoutMs: REQUEST_TIMEOUT_MS });
+  return fetchJson(fetchImpl, url, {
+    userAgent: USER_AGENT,
+    timeoutMs: REQUEST_TIMEOUT_MS,
+    retryDelayMs: RETRY_DELAY_MS,
+  });
+}
+
+/** Splits phrases into query-sized groups. */
+export function chunkPhrases(phrases: string[], size = PHRASES_PER_QUERY): string[][] {
+  const out: string[][] = [];
+  for (let i = 0; i < phrases.length; i += size) out.push(phrases.slice(i, i + size));
+  return out;
+}
+
+/**
+ * GDELT rejects a bare `"A" OR "B"` with a plain-text "Queries containing
+ * OR'd terms must be surrounded by ()" — so OR groups are parenthesised.
+ */
+export function buildQuery(phrases: string[]): string {
+  const or = phrases.map((p) => `"${p}"`).join(" OR ");
+  return phrases.length > 1 ? `(${or}) sourcelang:english` : `${or} sourcelang:english`;
 }
 
 function buildCatalystSummary(company: string): string {
@@ -160,11 +191,15 @@ function buildCatalystSummary(company: string): string {
 export class GdeltAdapter implements SourceAdapter {
   readonly sourceName: string = GDELT_SOURCE_NAME;
   private readonly fetchImpl: typeof fetch;
+  private readonly wait: (ms: number) => Promise<void>;
   private lastCursor: Cursor = "";
 
-  /** `fetchImpl` is injectable so tests can stub the API. */
-  constructor(fetchImpl?: typeof fetch) {
+  /** `fetchImpl` and `wait` are injectable so tests run without network or delays. */
+  constructor(fetchImpl?: typeof fetch, wait?: (ms: number) => Promise<void>) {
     this.fetchImpl = fetchImpl ?? globalThis.fetch;
+    // GDELT_REQUEST_SPACING_MS=0 lets runner tests skip the pacing.
+    const off = process.env.GDELT_REQUEST_SPACING_MS === "0";
+    this.wait = wait ?? (off ? async () => {} : (ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   }
 
   async fetchSince(cursor: Cursor): Promise<RawSourceDocument[]> {
@@ -174,16 +209,24 @@ export class GdeltAdapter implements SourceAdapter {
     if (since < oldestAllowed) since = oldestAllowed;
 
     const data = { articles: [] as GdeltArticle[] };
-    // Two queries over the same window: the original India-focused phrases
-    // plus the global-pharma / IPO-watchlist phrases. Same cursor semantics;
-    // per-URL dedupe below absorbs any overlap.
-    for (const phrases of [NEWS_PHRASES, GLOBAL_NEWS_PHRASES]) {
-      const page = (await getJson(
-        this.fetchImpl,
-        buildQueryUrl(phrases, new Date(since), now),
-      )) as { articles?: GdeltArticle[] };
-      for (const a of page.articles ?? []) data.articles.push(a);
+    // Small company groups (India-focused, then global + IPO watchlist),
+    // paced to GDELT's rate limit. Per-URL dedupe absorbs any overlap.
+    const groups = [...chunkPhrases(NEWS_PHRASES), ...chunkPhrases(GLOBAL_NEWS_PHRASES)];
+    const errors: unknown[] = [];
+    for (const [i, phrases] of groups.entries()) {
+      if (i > 0) await this.wait(REQUEST_SPACING_MS);
+      try {
+        const page = (await getJson(
+          this.fetchImpl,
+          buildQueryUrl(phrases, new Date(since), now),
+        )) as { articles?: GdeltArticle[] };
+        for (const a of page.articles ?? []) data.articles.push(a);
+      } catch (err) {
+        errors.push(err);
+      }
     }
+    // Every group failed: surface it so the runner records a failed run.
+    if (errors.length === groups.length) throw errors[0];
 
     const retrievedAt = now.toISOString();
     const docs: RawSourceDocument[] = [];
@@ -219,7 +262,9 @@ export class GdeltAdapter implements SourceAdapter {
     }
 
     docs.sort((a, b) => (a.publishedAt ?? "").localeCompare(b.publishedAt ?? ""));
-    this.lastCursor = newest;
+    // If some groups failed, keep the cursor where it was so their articles
+    // are retried next run (already-stored ones dedupe).
+    this.lastCursor = errors.length > 0 ? since : newest;
     return docs;
   }
 

@@ -7,7 +7,9 @@
  * `sourcecountry`).
  */
 import { describe, expect, it, vi } from "vitest";
-import { GdeltAdapter, GDELT_SOURCE_NAME, classifyNews, parseSeendate, type GdeltArticle } from "./gdelt.js";
+import { GdeltAdapter, GDELT_SOURCE_NAME, buildQuery, chunkPhrases, classifyNews, parseSeendate, type GdeltArticle } from "./gdelt.js";
+
+const noWait = async () => {};
 
 function article(overrides: Record<string, unknown> = {}): GdeltArticle {
   return {
@@ -122,7 +124,7 @@ describe("GdeltAdapter.fetchSince", () => {
         domain: "example.com",
       }),
     ];
-    const adapter = new GdeltAdapter(stubFetch(articles));
+    const adapter = new GdeltAdapter(stubFetch(articles), noWait);
     const docs = await adapter.fetchSince("2026-09-20T00:00:00.000Z");
     expect(docs).toHaveLength(1);
     expect(docs[0].publishedAt).toBe("2026-09-25T06:45:00.000Z");
@@ -131,9 +133,62 @@ describe("GdeltAdapter.fetchSince", () => {
 
   it("propagates API errors (runner records a failed run)", async () => {
     const failing = vi.fn(async () => ({ ok: false, status: 500, json: async () => ({}) }));
-    const adapter = new GdeltAdapter(failing as unknown as typeof fetch);
-    await expect(adapter.fetchSince("2026-01-01T00:00:00.000Z")).rejects.toThrow("HTTP 500");
-  }, 20000); // 3 attempts with backoff exceed the default 5s timeout
+    const adapter = new GdeltAdapter(failing as unknown as typeof fetch, noWait);
+    vi.useFakeTimers();
+    try {
+      const run = expect(adapter.fetchSince("2026-01-01T00:00:00.000Z")).rejects.toThrow("HTTP 500");
+      await vi.runAllTimersAsync(); // skip the retry backoff
+      await run;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("queries every company in small parenthesised groups, paced apart", async () => {
+    const fetchImpl = stubFetch([]);
+    const wait = vi.fn(async (_ms: number) => {});
+    const adapter = new GdeltAdapter(fetchImpl, wait);
+    await adapter.fetchSince("2026-09-20T00:00:00.000Z");
+    const queries = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls.map(
+      ([url]) => new URL(String(url)).searchParams.get("query") ?? "",
+    );
+    expect(queries.length).toBeGreaterThan(2);
+    expect(queries.some((q) => q.includes('"Moderna"'))).toBe(true);
+    for (const q of queries) expect(q).toMatch(/^\(.* OR .*\) sourcelang:english$/);
+    expect(wait).toHaveBeenCalledTimes(queries.length - 1);
+    expect(wait.mock.calls.every(([ms]) => ms >= 5000)).toBe(true);
+  });
+
+  it("keeps Moderna articles from a group that succeeded when another group fails", async () => {
+    let call = 0;
+    const fetchImpl = vi.fn(async (url: string) => {
+      call += 1;
+      if (call === 1) return { ok: false, status: 400, json: async () => ({}) };
+      const q = new URL(url).searchParams.get("query") ?? "";
+      const articles = q.includes('"Moderna"')
+        ? [article({ url: "https://example.com/moderna", title: "Moderna wins FDA approval for updated COVID vaccine", seendate: "20260926T010000Z" })]
+        : [];
+      return { ok: true, status: 200, json: async () => ({ articles }) };
+    }) as unknown as typeof fetch;
+    const adapter = new GdeltAdapter(fetchImpl, noWait);
+    const docs = await adapter.fetchSince("2026-09-20T00:00:00.000Z");
+    expect(docs).toHaveLength(1);
+    const [cand] = await adapter.normalize(docs[0]);
+    expect(cand.companyNames).toEqual(["Moderna, Inc."]);
+    // A group failed, so the cursor stays put and the next run retries it.
+    expect(adapter.getNextCursor()).toBe("2026-09-20T00:00:00.000Z");
+  });
+});
+
+describe("GDELT query building", () => {
+  it("parenthesises OR groups (GDELT rejects bare ORs)", () => {
+    expect(buildQuery(["Moderna", "Pfizer"])).toBe('("Moderna" OR "Pfizer") sourcelang:english');
+    expect(buildQuery(["Moderna"])).toBe('"Moderna" sourcelang:english');
+  });
+
+  it("splits phrases into groups of five", () => {
+    expect(chunkPhrases(["a", "b", "c", "d", "e", "f", "g"]).map((g) => g.length)).toEqual([5, 2]);
+  });
 });
 
 describe("classifyNews — IPO detection", () => {
