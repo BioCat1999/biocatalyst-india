@@ -55,18 +55,40 @@ export interface ComputedReaction {
   licenseMetadata?: string;
 }
 
-/** NSE/BSE regular close, 15:30 IST. */
-const CLOSE_MINUTES = 15 * 60 + 30;
+/**
+ * Regular trading session per exchange, in the exchange's own time zone.
+ * Before/after closes are chosen against these hours, so a 09:00 New York
+ * release counts as "before the NYSE open", not "after the NSE close".
+ */
+interface Session {
+  timeZone: string;
+  label: string;
+  openMinutes: number;
+  closeMinutes: number;
+}
+const hm = (h: number, m = 0) => h * 60 + m;
+const INDIA: Session = { timeZone: "Asia/Kolkata", label: "IST", openMinutes: hm(9, 15), closeMinutes: hm(15, 30) };
+const SESSIONS: Record<Exchange, Session> = {
+  NSE: INDIA,
+  BSE: INDIA,
+  NYSE: { timeZone: "America/New_York", label: "New York time", openMinutes: hm(9, 30), closeMinutes: hm(16) },
+  NASDAQ: { timeZone: "America/New_York", label: "New York time", openMinutes: hm(9, 30), closeMinutes: hm(16) },
+  LSE: { timeZone: "Europe/London", label: "London time", openMinutes: hm(8), closeMinutes: hm(16, 30) },
+  EPA: { timeZone: "Europe/Paris", label: "Paris time", openMinutes: hm(9), closeMinutes: hm(17, 30) },
+  XETRA: { timeZone: "Europe/Berlin", label: "Frankfurt time", openMinutes: hm(9), closeMinutes: hm(17, 30) },
+  SWX: { timeZone: "Europe/Zurich", label: "Zurich time", openMinutes: hm(9), closeMinutes: hm(17, 30) },
+  TSE: { timeZone: "Asia/Tokyo", label: "Tokyo time", openMinutes: hm(9), closeMinutes: hm(15, 30) },
+};
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const pct = (before: number, after: number) => round2((after / before - 1) * 100);
 
-/** Split an ISO timestamp into IST calendar date + time parts. */
-function istParts(iso: string): { date: string; minutes: number; hm: string } {
+/** Split an ISO timestamp into the exchange-local calendar date + time. */
+function localParts(iso: string, timeZone: string): { date: string; minutes: number; hm: string } {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) throw new Error(`invalid eventTime: ${iso}`);
   const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -82,6 +104,21 @@ function istParts(iso: string): { date: string; minutes: number; hm: string } {
     minutes: Number(hour) * 60 + Number(parts.minute),
     hm: `${hour}:${parts.minute}`,
   };
+}
+
+/** The exchange close on `date` as ISO 8601 with that day's UTC offset. */
+function closeTimestamp(date: string, session: Session): string {
+  const hh = String(Math.floor(session.closeMinutes / 60)).padStart(2, "0");
+  const mm = String(session.closeMinutes % 60).padStart(2, "0");
+  // Offset at noon UTC that day (no exchange closes inside a DST switch hour).
+  const name = new Intl.DateTimeFormat("en-US", {
+    timeZone: session.timeZone,
+    timeZoneName: "longOffset",
+  })
+    .formatToParts(new Date(`${date}T12:00:00Z`))
+    .find((p) => p.type === "timeZoneName")?.value ?? "GMT";
+  const offset = name === "GMT" ? "+00:00" : name.replace("GMT", "");
+  return `${date}T${hh}:${mm}:00${offset}`;
 }
 
 function closeOn(bars: PriceBar[], date: string | undefined): number | null {
@@ -110,7 +147,9 @@ export function computeReaction(input: ReactionInput): ComputedReaction | null {
   const dates = [...new Set(securityBars.map((b) => b.date))].sort();
   if (dates.length === 0) return null;
 
-  const { date: d, minutes: t, hm } = istParts(eventTime);
+  const session = SESSIONS[exchange] ?? INDIA;
+  const { date: d, minutes: t, hm: at } = localParts(eventTime, session.timeZone);
+  const when = `${d} ${at} ${session.label}`;
 
   let before: string | undefined;
   let after: string | undefined;
@@ -120,23 +159,23 @@ export function computeReaction(input: ReactionInput): ComputedReaction | null {
     before = dates.filter((x) => x < d).pop();
     after = dates.find((x) => x >= d);
     timingNote = "daily window — exact announcement time unknown";
-  } else if (dates.includes(d) && t >= CLOSE_MINUTES) {
+  } else if (dates.includes(d) && t >= session.closeMinutes) {
     // Announced on a trading day after the close: the event-day close is
     // legitimately "before"; the reaction shows up on the next close.
     before = d;
     after = dates.find((x) => x > d);
-    timingNote = `announcement ${d} ${hm} IST — after market close`;
+    timingNote = `announcement ${when} — after market close`;
   } else {
     // Before the open, during market hours, or on a non-trading day: the
     // last close strictly before the event day is "before".
     before = dates.filter((x) => x < d).pop();
     after = dates.find((x) => x >= d);
     if (!dates.includes(d)) {
-      timingNote = `announcement ${d} ${hm} IST — non-trading day`;
-    } else if (t < 9 * 60 + 15) {
-      timingNote = `announcement ${d} ${hm} IST — before market open`;
+      timingNote = `announcement ${when} — non-trading day`;
+    } else if (t < session.openMinutes) {
+      timingNote = `announcement ${when} — before market open`;
     } else {
-      timingNote = `announcement ${d} ${hm} IST — during market hours`;
+      timingNote = `announcement ${when} — during market hours`;
     }
   }
 
@@ -174,8 +213,8 @@ export function computeReaction(input: ReactionInput): ComputedReaction | null {
     benchmarkPctChange,
     relativeChange,
     windowDefinition,
-    windowStart: before ? `${before}T15:30:00+05:30` : null,
-    windowEnd: after ? `${after}T15:30:00+05:30` : null,
+    windowStart: before ? closeTimestamp(before, session) : null,
+    windowEnd: after ? closeTimestamp(after, session) : null,
     provider: providerName,
     ...(licenseMetadata ? { licenseMetadata } : {}),
   };

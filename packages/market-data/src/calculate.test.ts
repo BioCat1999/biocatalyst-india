@@ -183,3 +183,44 @@ describe("computeReaction — missing data → nulls, never fabricated", () => {
     ).toThrow(/invalid eventTime/);
   });
 });
+
+describe("computeReaction — exchange-local trading hours", () => {
+  const NYSE_BARS = bars([
+    ["2026-10-21", 280],
+    ["2026-10-22", 285.19],
+    ["2026-10-23", 285.64],
+  ]);
+  const nyse = {
+    exchange: "NYSE" as const,
+    securityTicker: "ABBV",
+    securityBars: NYSE_BARS,
+    providerName: "yahoo",
+  };
+
+  it("a 09:00 New York release is before the NYSE open, not after the NSE close", () => {
+    // 2026-10-22 13:00 UTC = 09:00 New York = 18:30 IST.
+    const r = computeReaction({ ...nyse, eventTime: "2026-10-22T13:00:00.000Z" })!;
+    expect(r.priceBefore).toBe(280);
+    expect(r.priceAfter).toBe(285.19);
+    expect(r.windowDefinition).toContain("2026-10-22 09:00 New York time — before market open");
+    expect(r.windowStart).toBe("2026-10-21T16:00:00-04:00");
+    expect(r.windowEnd).toBe("2026-10-22T16:00:00-04:00");
+  });
+
+  it("a release after the NYSE close measures to the next close", () => {
+    // 2026-10-22 21:30 UTC = 17:30 New York.
+    const r = computeReaction({ ...nyse, eventTime: "2026-10-22T21:30:00.000Z" })!;
+    expect(r.priceBefore).toBe(285.19);
+    expect(r.priceAfter).toBe(285.64);
+    expect(r.windowDefinition).toContain("after market close");
+  });
+
+  it("uses winter offsets after daylight saving ends", () => {
+    const r = computeReaction({
+      ...nyse,
+      securityBars: bars([["2026-11-09", 1], ["2026-11-10", 2]]),
+      eventTime: "2026-11-10T15:00:00.000Z", // 10:00 New York, during hours
+    })!;
+    expect(r.windowStart).toBe("2026-11-09T16:00:00-05:00");
+  });
+});
