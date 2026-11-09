@@ -29,6 +29,8 @@ export interface ReactionRunMetrics {
   securitiesWithoutData: number;
   /** Events skipped because no window could be formed from the bars. */
   windowsUnformable: number;
+  /** True when the time budget ran out before every event was processed. */
+  incomplete: boolean;
   errors: string[];
 }
 
@@ -47,6 +49,8 @@ export async function computeAndStoreReactions(
     eventIds?: string[];
     /** Only events that occurred within this many days (daily refresh). */
     sinceDays?: number;
+    /** Stop starting new events after this many ms (serverless time limit). */
+    budgetMs?: number;
   } = {},
 ): Promise<ReactionRunMetrics> {
   const metrics: ReactionRunMetrics = {
@@ -56,8 +60,10 @@ export async function computeAndStoreReactions(
     reactionsWithNullPrices: 0,
     securitiesWithoutData: 0,
     windowsUnformable: 0,
+    incomplete: false,
     errors: [],
   };
+  const started = Date.now();
 
   const filters: string[] = [];
   const params: unknown[] = [];
@@ -74,7 +80,7 @@ export async function computeAndStoreReactions(
     `SELECT e.id::text AS id, e.occurred_at
        FROM events e
       WHERE e.review_status = 'published' AND e.occurred_at IS NOT NULL ${eventFilter}
-      ORDER BY e.occurred_at`,
+      ORDER BY e.occurred_at DESC`,  // newest first, so a time-limited run covers fresh news
     params,
   );
   if (events.length === 0) return metrics;
@@ -173,6 +179,10 @@ export async function computeAndStoreReactions(
     bars?.filter((b) => b.date >= w.from && b.date <= w.to);
 
   for (const event of events) {
+    if (opts.budgetMs !== undefined && Date.now() - started > opts.budgetMs) {
+      metrics.incomplete = true;
+      break;
+    }
     metrics.eventsScanned++;
     try {
       const chosen = chosenByEvent.get(event.id);
@@ -263,12 +273,13 @@ async function persistBars(
   bars: PriceBar[],
   providerName: string,
 ): Promise<void> {
-  for (const b of bars) {
-    await db.query(
-      `INSERT INTO market_prices (security_id, ts, close, source_provider)
-       VALUES ($1::uuid, $2::timestamptz, $3, $4)
-       ON CONFLICT (security_id, ts) DO NOTHING`,
-      [securityId, `${b.date}T15:30:00+05:30`, b.close, providerName],
-    );
-  }
+  // One statement per security: the database can be a long round trip away
+  // from the serverless function, so per-bar inserts are far too slow.
+  await db.query(
+    `INSERT INTO market_prices (security_id, ts, close, source_provider)
+     SELECT $1::uuid, (d || 'T15:30:00+05:30')::timestamptz, c, $4
+       FROM unnest($2::text[], $3::float8[]) AS t(d, c)
+     ON CONFLICT (security_id, ts) DO NOTHING`,
+    [securityId, bars.map((b) => b.date), bars.map((b) => b.close), providerName],
+  );
 }

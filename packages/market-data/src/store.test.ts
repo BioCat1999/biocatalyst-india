@@ -159,4 +159,12 @@ describe("computeAndStoreReactions", () => {
     // Fixture events are dated 2026-09-29, well outside a one-day window.
     expect(metrics.eventsScanned).toBe(0);
   });
+
+  it("stops at the time budget and reports the run as incomplete", async () => {
+    const metrics = await computeAndStoreReactions(pool, new FixtureMarketDataProvider(), {
+      budgetMs: -1,
+    });
+    expect(metrics.incomplete).toBe(true);
+    expect(metrics.eventsScanned).toBe(0);
+  });
 });

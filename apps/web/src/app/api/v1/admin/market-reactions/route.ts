@@ -7,6 +7,8 @@ import { isAdminRequest } from "@/lib/admin";
 export const maxDuration = 300;
 
 const DEFAULT_SINCE_DAYS = 45;
+// Leave headroom under maxDuration; unfinished events are picked up next run.
+const RUN_BUDGET_MS = 240_000;
 const MAX_SINCE_DAYS = 3650;
 
 /**
@@ -33,6 +35,7 @@ export async function POST(req: NextRequest) {
   try {
     const metrics = await computeAndStoreReactions(getPool(), new YahooFinanceProvider(), {
       sinceDays,
+      budgetMs: RUN_BUDGET_MS,
     });
     return NextResponse.json(
       { sinceDays, ...metrics },
