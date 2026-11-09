@@ -221,7 +221,9 @@ export class PubmedAdapter implements SourceAdapter {
       fingerprint: eventFingerprint({
         sourceName: this.sourceName,
         eventType: "scientific_publication",
-        occurredDate: doc.publishedAt.slice(0, 10),
+        // A PMID is one paper; PubMed may re-date it (epub → issue date), which
+        // must not create a second event.
+        occurredDate: "pmid",
         entityKey: pmid,
       }),
       rawSnapshot: raw,

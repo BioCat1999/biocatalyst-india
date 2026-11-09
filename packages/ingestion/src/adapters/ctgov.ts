@@ -33,7 +33,6 @@ import {
   canonicalizeUrl,
   contentHash,
   eventFingerprint,
-  isoDatePart,
   parseIso,
 } from "../normalize.js";
 import { SPONSOR_QUERIES, matchCompanyName, matchDrugName } from "./company-map.js";
@@ -347,7 +346,10 @@ export class CtgovAdapter implements SourceAdapter {
         fingerprint: eventFingerprint({
           sourceName: this.sourceName,
           eventType: eventType ?? "unknown",
-          occurredDate: occurredAt ? isoDatePart(occurredAt) : "unknown",
+          // Keyed on the recruitment status, not the last-update date: routine
+          // registry edits must not repeat the same trial update. A new status
+          // (e.g. recruiting → completed) is a new event.
+          occurredDate: `status:${status ?? "unknown"}`,
           trialKey: `NCT/${nctId}`,
           entityKey: company,
         }),

@@ -71,6 +71,7 @@ export {
   ADAPTER_FACTORIES,
   createAdapter,
   listSourceNames,
+  FIXTURE_SOURCE_NAMES,
   runAllIngestion,
 } from "./registry.js";
 export {

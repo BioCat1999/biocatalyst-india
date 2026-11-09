@@ -554,6 +554,21 @@ describe("multi-source ingestion (M7)", () => {
     vi.unstubAllEnvs();
   });
 
+  it("leaves fixture sources out of production runs", () => {
+    const live = listSourceNames({ includeFixtures: false });
+    expect(live).not.toContain("ctri-fixture");
+    expect(live).not.toContain("bse-fixture");
+    expect(live).not.toContain("pubmed-fixture");
+    expect(live).toContain("ctgov");
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      expect(listSourceNames()).toEqual(live);
+    } finally {
+      vi.unstubAllEnvs();
+      vi.stubEnv("GDELT_REQUEST_SPACING_MS", "0");
+    }
+  });
+
   it("runAllIngestion runs every registered adapter with per-source metrics", async () => {
     expect(listSourceNames()).toEqual(["ctri-fixture", "bse-fixture", "pubmed-fixture", "ctgov", "gdelt", "press-rss", "prnewswire", "drugs-com", "openfda", "pubmed", "sebi-rss"]);
     const before = await eventCount();

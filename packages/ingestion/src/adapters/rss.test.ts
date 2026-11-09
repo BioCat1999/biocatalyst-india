@@ -157,6 +157,24 @@ describe("classifyPressRelease — wire phrasing (Drugs.com, 2026-11-05)", () =>
     expect(classifyPressRelease("Board approves interim dividend for FY27")).toBeNull();
     expect(classifyPressRelease("Q2 FY27 results: revenue up 12%")).toBeNull();
   });
+
+  it("does not treat an 'FDA-approved' adjective as a new approval", () => {
+    expect(
+      classifyPressRelease("Lilly and Hims & Hers expand access to FDA-approved Lilly medicines"),
+    ).not.toBe("regulatory_approval");
+    expect(classifyPressRelease("U.S. FDA Approves Subcutaneous Induction Regimen for SKYRIZI")).toBe(
+      "regulatory_approval",
+    );
+  });
+
+  it("matches short regulator names as whole words only", () => {
+    // "nda" inside "standard", "ema" inside "cinema" are not regulators.
+    expect(classifyPressRelease("Board approves new standard operating policy")).toBeNull();
+    expect(classifyPressRelease("Shareholders approve cinema unit sale")).toBeNull();
+    expect(classifyPressRelease("Zydus receives final approval from USFDA for generic")).toBe(
+      "regulatory_approval",
+    );
+  });
 });
 
 describe("PressRssAdapter", () => {

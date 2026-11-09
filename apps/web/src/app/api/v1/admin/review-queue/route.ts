@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@biocatalyst/db";
 import { listPendingReview } from "@biocatalyst/data";
+import { isAdminRequest } from "@/lib/admin";
 
 /**
  * GET /api/v1/admin/review-queue — confidence-threshold review queue
@@ -9,9 +10,13 @@ import { listPendingReview } from "@biocatalyst/data";
  * Events with review_status = 'pending_review' (low-confidence or
  * fallback extractions, never auto-published endpoint claims), lowest
  * confidence first, with extraction provenance. `?limit=` (1–200,
- * default 50). Read-only and secret-free like the health endpoint.
+ * default 50). Requires `Authorization: Bearer <ADMIN_TOKEN>` (see
+ * src/lib/admin.ts), because the queue holds unpublished events.
  */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  if (!isAdminRequest(request)) {
+    return NextResponse.json({ error: "forbidden — admin token required" }, { status: 403 });
+  }
   try {
     const pool = getPool();
     await pool.query("SELECT 1");

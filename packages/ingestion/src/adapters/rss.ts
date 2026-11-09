@@ -156,16 +156,22 @@ export function classifyPressRelease(title: string): string | null {
   const has = (...words: string[]): boolean => words.some((w) => t.includes(w));
 
   // Regulatory approval — strict gate: an approval word AND a regulator or
-  // application type, so "board approves dividend" doesn't qualify.
-  if (
-    (/\bapprov\w*/.test(t) || has("receives approval", "granted approval", "approval granted")) &&
+  // application type, so "board approves dividend" doesn't qualify. An
+  // "FDA-approved medicines" adjective describes an existing product, not a
+  // new approval, so it is removed before looking for the approval word.
+  const withoutAdjective = t.replace(/\b(?:fda|u\.s\.|us|ema)[- ]approved\b/g, " ");
+  const regulator =
+    /\b(?:usfda|fda|ema|cdsco|dcgi|mhra|nda|anda|bla|snda)\b/.test(t) ||
     has(
-      "usfda", "u.s. fda", "fda", "food and drug administration", "ema", "european commission",
-      "cdsco", "dcgi", "mhra", "health canada", "nda", "anda", "bla", "snda",
+      "u.s. fda", "food and drug administration", "european commission", "health canada",
       // Wire phrasing that names the market instead of the regulator.
       "approved in the u.s", "approved in u.s", "approved in the us", "approved in us",
       "accelerated approval",
-    )
+    );
+  if (
+    (/\bapprov\w*/.test(withoutAdjective) ||
+      has("receives approval", "granted approval", "approval granted")) &&
+    regulator
   ) {
     return "regulatory_approval";
   }

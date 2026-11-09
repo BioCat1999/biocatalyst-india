@@ -123,4 +123,40 @@ describe("computeAndStoreReactions", () => {
     );
     expect(rows[0].n).toBeGreaterThan(0);
   });
+
+  it("fetches each security's prices once, however many events it has", async () => {
+    await pool.query(`
+      INSERT INTO events (id, event_type, occurred_at, review_status) VALUES
+        ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'regulatory_approval',
+         '2026-09-30T08:15:00+05:30', 'published')
+      ON CONFLICT (id) DO NOTHING`);
+    await pool.query(`
+      INSERT INTO event_entities (event_id, entity_type, entity_id) VALUES
+        ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'company', '11111111-1111-1111-1111-111111111111')
+      ON CONFLICT DO NOTHING`);
+    try {
+      const provider = new FixtureMarketDataProvider();
+      const calls: string[] = [];
+      const counting = Object.assign(Object.create(Object.getPrototypeOf(provider)), provider, {
+        getPrices: (ref: { ticker: string }, from: string, to: string) => {
+          calls.push(ref.ticker);
+          return provider.getPrices(ref as never, from, to);
+        },
+      });
+      const metrics = await computeAndStoreReactions(pool, counting);
+      expect(metrics.eventsScanned).toBe(3);
+      expect(metrics.reactionsUpserted).toBe(2); // both Sun Pharma events
+      expect(calls.filter((t) => t === "SUNPHARMA")).toHaveLength(1);
+    } finally {
+      await pool.query(`DELETE FROM events WHERE id = 'cccccccc-cccc-cccc-cccc-cccccccccccc'`);
+    }
+  });
+
+  it("sinceDays limits the run to recent events", async () => {
+    const metrics = await computeAndStoreReactions(pool, new FixtureMarketDataProvider(), {
+      sinceDays: 1,
+    });
+    // Fixture events are dated 2026-09-29, well outside a one-day window.
+    expect(metrics.eventsScanned).toBe(0);
+  });
 });

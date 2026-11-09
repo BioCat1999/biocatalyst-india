@@ -12,9 +12,13 @@
  *     Class II/III → `manufacturing_or_inspection_update` (often a plant
  *     quality issue — the kind of news that moves Indian API/formulation
  *     stocks when the recalling firm is Indian).
- *   - `/drug/shortages.json` — current unavailable/limited products, mapped
- *     to `drug_shortage` when the reporting company resolves to a tracked
- *     company. Availability and the FDA's stated reason are kept verbatim.
+ *   - `/drug/shortages.json` — NEWLY POSTED unavailable/limited products,
+ *     mapped to `drug_shortage` when the reporting company resolves to a
+ *     tracked company. Dated by `initial_posting_date`, not `update_date`:
+ *     FDA re-verifies long-running shortages every few days, which would
+ *     otherwise resurface years-old shortages as news. One event per
+ *     company + medicine (the API has one record per package size).
+ *     Availability and the FDA's stated reason are kept verbatim.
  *
  * openFDA is a primary source (`isPrimary: true`): approvals carry 0.9
  * confidence (auto-publish), recalls 0.85 (pending review — recalling-firm
@@ -77,6 +81,7 @@ export interface FdaApprovalRecord {
     submission_type?: unknown;
     submission_status?: unknown;
     submission_status_date?: unknown;
+    submission_class_code?: unknown;
   }>;
 }
 
@@ -102,6 +107,7 @@ export interface FdaShortageRecord {
   update_type?: unknown;
   shortage_reason?: unknown;
   update_date?: unknown;
+  initial_posting_date?: unknown;
 }
 
 function asText(v: unknown): string | null {
@@ -126,6 +132,10 @@ function latestApprovalSubmission(
     const date = asText(s.submission_status_date);
     const type = asText(s.submission_type);
     if (!date || !type) continue;
+    // Supplements are mostly label, manufacturing or REMS paperwork (about two
+    // thirds of all approvals). Only an efficacy supplement — a new
+    // indication — is a catalyst.
+    if (type === "SUPPL" && asText(s.submission_class_code) !== "EFFICACY") continue;
     if (!best || date > best.date) best = { type, date };
   }
   return best;
@@ -195,10 +205,11 @@ export class OpenFdaAdapter implements SourceAdapter {
       "/drug/enforcement.json",
       `recall_initiation_date:${range}`,
     );
+    const isoDay = (d: Date) => d.toISOString().slice(0, 10);
     const shortages = await this.query(
       "/drug/shortages.json",
-      "status:Current AND -availability:Available",
-      "update_date:desc",
+      `status:Current AND -availability:Available AND initial_posting_date:[${isoDay(new Date(since))} TO ${isoDay(now)}]`,
+      "initial_posting_date:desc",
     );
 
     const retrievedAt = now.toISOString();
@@ -235,12 +246,10 @@ export class OpenFdaAdapter implements SourceAdapter {
     }
     for (const r of shortages) {
       const rec = r as FdaShortageRecord;
-      const identity = [
-        asText(rec.package_ndc),
-        asText(rec.company_name),
-        asText(rec.generic_name),
-      ].filter(Boolean).join(":") || "unknown";
-      push("shortage", rec, fdaSlashDateToIso(asText(rec.update_date)), identity);
+      // One document per company + medicine: package sizes collapse together.
+      const identity = [asText(rec.company_name), asText(rec.generic_name)]
+        .filter(Boolean).join(":") || asText(rec.package_ndc) || "unknown";
+      push("shortage", rec, fdaSlashDateToIso(asText(rec.initial_posting_date)), identity);
     }
 
     docs.sort((a, b) => (a.publishedAt ?? "").localeCompare(b.publishedAt ?? ""));
@@ -294,7 +303,12 @@ function normalizeApproval(
   if (!sub) return null;
   const brand = brandName(r) ?? "a drug product";
   const ingredient = activeIngredient(r);
-  const headline = `FDA approves ${brand}${ingredient ? ` (${ingredient})` : ""} — ${sub.type}`;
+  const appType = /^[A-Z]+/.exec(asText(r.application_number) ?? "")?.[0] ?? null;
+  const drug = `${brand}${ingredient && ingredient.toLowerCase() !== brand.toLowerCase() ? ` (${ingredient})` : ""}`;
+  const headline =
+    sub.type === "SUPPL"
+      ? `FDA approves new indication for ${drug}`
+      : `FDA approves ${drug} — ${sub.type === "ORIG" ? (appType ?? "new application") : sub.type}`;
   const occurredAt = fdaDateToIso(sub.date);
   return {
     ...baseCandidate(doc),
@@ -302,7 +316,7 @@ function normalizeApproval(
     occurredAt,
     headline,
     factualSummary:
-      `The US FDA granted ${sub.type} approval for ${brand} ` +
+      `The US FDA granted ${sub.type === "SUPPL" ? "an efficacy supplement (new indication)" : sub.type === "ORIG" ? `${appType ?? "original application"}` : sub.type} approval for ${brand} ` +
       `(sponsor: ${sponsor}). Approval status date ${sub.date}.`,
     catalystSummary:
       `A US FDA approval for ${company}. For Indian companies this can mean ` +
@@ -370,7 +384,7 @@ function normalizeShortage(
   const availability = asText(r.availability) ?? "limited availability";
   const reason = asText(r.shortage_reason);
   const updateType = asText(r.update_type);
-  const occurredAt = fdaSlashDateToIso(asText(r.update_date)) ?? doc.publishedAt;
+  const occurredAt = fdaSlashDateToIso(asText(r.initial_posting_date)) ?? doc.publishedAt;
   const headline = `FDA shortage: ${medicine} — ${availability}`;
   return {
     ...baseCandidate(doc),
@@ -391,7 +405,7 @@ function normalizeShortage(
       sourceName: doc.sourceName,
       eventType: "drug_shortage",
       occurredDate: occurredAt ? occurredAt.slice(0, 10) : "unknown",
-      entityKey: `${company}:${medicine}:${availability}`,
+      entityKey: `${company}:${medicine}`,
     }),
   };
 }

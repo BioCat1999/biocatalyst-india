@@ -43,7 +43,11 @@ const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 export async function computeAndStoreReactions(
   db: DbLike,
   provider: MarketDataProvider,
-  opts: { eventIds?: string[] } = {},
+  opts: {
+    eventIds?: string[];
+    /** Only events that occurred within this many days (daily refresh). */
+    sinceDays?: number;
+  } = {},
 ): Promise<ReactionRunMetrics> {
   const metrics: ReactionRunMetrics = {
     provider: provider.providerName,
@@ -55,8 +59,17 @@ export async function computeAndStoreReactions(
     errors: [],
   };
 
-  const eventFilter = opts.eventIds ? `AND e.id = ANY($1::uuid[])` : "";
-  const params = opts.eventIds ? [opts.eventIds] : [];
+  const filters: string[] = [];
+  const params: unknown[] = [];
+  if (opts.eventIds) {
+    params.push(opts.eventIds);
+    filters.push(`AND e.id = ANY($${params.length}::uuid[])`);
+  }
+  if (opts.sinceDays !== undefined) {
+    params.push(opts.sinceDays);
+    filters.push(`AND e.occurred_at >= now() - make_interval(days => $${params.length}::int)`);
+  }
+  const eventFilter = filters.join(" ");
   const { rows: events } = await db.query<EventRow>(
     `SELECT e.id::text AS id, e.occurred_at
        FROM events e
@@ -98,43 +111,85 @@ export async function computeAndStoreReactions(
     secsByCompany.set(s.company_id, list);
   }
 
+  // One reaction per event: first linked company's NSE security, falling
+  // back to that company's first security.
+  const chosenByEvent = new Map<string, { id: string; exchange: string; ticker: string }>();
+  for (const event of events) {
+    const companySecurities = (companiesByEvent.get(event.id) ?? []).flatMap(
+      (cid) => secsByCompany.get(cid) ?? [],
+    );
+    const chosen = companySecurities.find((s) => s.exchange === "NSE") ?? companySecurities[0];
+    if (chosen) chosenByEvent.set(event.id, chosen);
+  }
+
+  // Fetch each security's prices once, over the span all its events need,
+  // instead of one provider call per event.
+  const windowOf = (e: EventRow) => {
+    const at = e.occurred_at.getTime();
+    return { from: isoDate(new Date(at - 20 * DAY_MS)), to: isoDate(new Date(at + 20 * DAY_MS)) };
+  };
+  const spanBySecurity = new Map<string, { from: string; to: string }>();
+  // Span across every event, for one benchmark fetch ("" = no events yet).
+  const overall = { from: "", to: "" };
+  for (const event of events) {
+    const chosen = chosenByEvent.get(event.id);
+    if (!chosen) continue;
+    const w = windowOf(event);
+    const span = spanBySecurity.get(chosen.id);
+    spanBySecurity.set(chosen.id, span
+      ? { from: w.from < span.from ? w.from : span.from, to: w.to > span.to ? w.to : span.to }
+      : w);
+    if (!overall.from || w.from < overall.from) overall.from = w.from;
+    if (!overall.to || w.to > overall.to) overall.to = w.to;
+  }
+  const barsBySecurity = new Map<string, Promise<PriceBar[]>>();
+  const barsFor = (sec: { id: string; exchange: string; ticker: string }) => {
+    let p = barsBySecurity.get(sec.id);
+    if (!p) {
+      const span = spanBySecurity.get(sec.id)!;
+      const ref: SecurityRef = { exchange: sec.exchange as SecurityRef["exchange"], ticker: sec.ticker };
+      p = provider.getPrices(ref, span.from, span.to).then(async (bars) => {
+        // Persist the bars we measured from (provenance for market_prices).
+        if (bars.length > 0) await persistBars(db, sec.id, bars, provider.providerName);
+        return bars;
+      });
+      barsBySecurity.set(sec.id, p);
+    }
+    return p;
+  };
+  let benchmarkAll: Promise<PriceBar[] | undefined> | undefined;
+  const benchmarkFor = () => {
+    if (!benchmarkAll) {
+      benchmarkAll =
+        provider.benchmarkId && provider.getBenchmarkPrices && overall.from
+          ? provider
+              .getBenchmarkPrices(provider.benchmarkId, overall.from, overall.to)
+              .catch(() => undefined) // benchmark failure → nulls, not a crash
+          : Promise.resolve(undefined);
+    }
+    return benchmarkAll;
+  };
+  const inWindow = (bars: PriceBar[] | undefined, w: { from: string; to: string }) =>
+    bars?.filter((b) => b.date >= w.from && b.date <= w.to);
+
   for (const event of events) {
     metrics.eventsScanned++;
     try {
-      // One reaction per event: first linked company's NSE security,
-      // falling back to that company's first security.
-      const companySecurities = (companiesByEvent.get(event.id) ?? []).flatMap(
-        (cid) => secsByCompany.get(cid) ?? [],
-      );
-      const chosen =
-        companySecurities.find((s) => s.exchange === "NSE") ?? companySecurities[0];
+      const chosen = chosenByEvent.get(event.id);
       if (!chosen) continue; // no listed security linked — nothing to measure
 
       const ref: SecurityRef = {
         exchange: chosen.exchange as SecurityRef["exchange"],
         ticker: chosen.ticker,
       };
-      const at = event.occurred_at.getTime();
-      const from = isoDate(new Date(at - 20 * DAY_MS));
-      const to = isoDate(new Date(at + 20 * DAY_MS));
-
-      const bars = await provider.getPrices(ref, from, to);
+      const w = windowOf(event);
+      const bars = inWindow(await barsFor(chosen), w) ?? [];
       if (bars.length === 0) {
         metrics.securitiesWithoutData++;
         continue; // missing data → no row, never fabricated
       }
 
-      // Persist the bars we measured from (provenance for market_prices).
-      await persistBars(db, chosen.id, bars, provider.providerName);
-
-      let benchmarkBars: PriceBar[] | undefined;
-      if (provider.benchmarkId && provider.getBenchmarkPrices) {
-        try {
-          benchmarkBars = await provider.getBenchmarkPrices(provider.benchmarkId, from, to);
-        } catch {
-          benchmarkBars = undefined; // benchmark failure → nulls, not a crash
-        }
-      }
+      const benchmarkBars = inWindow(await benchmarkFor(), w);
 
       const reaction = computeReaction({
         eventTime: event.occurred_at.toISOString(),

@@ -7,7 +7,7 @@
  * `sourcecountry`).
  */
 import { describe, expect, it, vi } from "vitest";
-import { GdeltAdapter, GDELT_SOURCE_NAME, buildQuery, chunkPhrases, classifyNews, parseSeendate, type GdeltArticle } from "./gdelt.js";
+import { GdeltAdapter, GDELT_SOURCE_NAME, buildQuery, chunkPhrases, classifyNews, isTrustedNewsDomain, parseSeendate, type GdeltArticle } from "./gdelt.js";
 
 const noWait = async () => {};
 
@@ -129,6 +129,35 @@ describe("GdeltAdapter.fetchSince", () => {
     expect(docs).toHaveLength(1);
     expect(docs[0].publishedAt).toBe("2026-09-25T06:45:00.000Z");
     expect(adapter.getNextCursor()).toBe("2026-09-25T06:45:00.000Z");
+  });
+
+  it("drops articles from outlets outside the trusted list", async () => {
+    const articles = [
+      article(), // moneycontrol.com — kept
+      article({
+        url: "https://www.sott.net/article/123-sun-pharma",
+        title: "Sun Pharma recall sparks fears",
+        domain: "sott.net",
+      }),
+      article({
+        url: "https://m.economictimes.com/industry/healthcare/biocon-launch",
+        title: "Biocon launches biosimilar in US",
+        domain: "m.economictimes.com", // subdomain of a trusted outlet — kept
+      }),
+    ];
+    const adapter = new GdeltAdapter(stubFetch(articles), noWait);
+    const docs = await adapter.fetchSince("2026-09-20T00:00:00.000Z");
+    expect(docs.map((d) => d.canonicalUrl)).not.toContain("https://www.sott.net/article/123-sun-pharma");
+    expect(docs).toHaveLength(2);
+  });
+
+  it("matches trusted domains and subdomains only", () => {
+    expect(isTrustedNewsDomain("reuters.com")).toBe(true);
+    expect(isTrustedNewsDomain("www.reuters.com")).toBe(true);
+    expect(isTrustedNewsDomain("https://www.fiercepharma.com/pharma/x")).toBe(true);
+    expect(isTrustedNewsDomain("notreuters.com")).toBe(false);
+    expect(isTrustedNewsDomain("tennesseedaily.com")).toBe(false);
+    expect(isTrustedNewsDomain(null)).toBe(false);
   });
 
   it("propagates API errors (runner records a failed run)", async () => {

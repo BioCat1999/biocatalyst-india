@@ -7,8 +7,8 @@
  * class, one line in `ADAPTER_FACTORIES` — no runner, CLI, or route changes
  * (spec §7: "Add sources one at a time").
  *
- * Sources: three fixture adapters (offline dev/test data — inert after
- * their first run thanks to cursoring) plus live adapters that call
+ * Sources: three fixture adapters (offline dev/test data — skipped in
+ * production, where their fixture files are not deployed) plus live adapters that call
  * free, keyless public endpoints:
  *   - `ctgov`: ClinicalTrials.gov API v2 (trials)
  *   - `gdelt`: GDELT DOC 2.0 API (news)
@@ -49,9 +49,25 @@ export const ADAPTER_FACTORIES: Record<string, () => SourceAdapter> = {
   "sebi-rss": () => new SebiRssAdapter(),
 };
 
-/** Registered source names, in run order. */
-export function listSourceNames(): string[] {
-  return Object.keys(ADAPTER_FACTORIES);
+/** Offline sample-data adapters, for local development and tests only. */
+export const FIXTURE_SOURCE_NAMES: readonly string[] = [
+  "ctri-fixture",
+  "bse-fixture",
+  "pubmed-fixture",
+];
+
+/**
+ * Registered source names, in run order. Fixture sources are left out in
+ * production (their files are not in the deployed bundle, so they only fail)
+ * unless `includeFixtures` is set explicitly.
+ */
+export function listSourceNames(
+  opts: { includeFixtures?: boolean } = {},
+): string[] {
+  const includeFixtures = opts.includeFixtures ?? process.env.NODE_ENV !== "production";
+  return Object.keys(ADAPTER_FACTORIES).filter(
+    (name) => includeFixtures || !FIXTURE_SOURCE_NAMES.includes(name),
+  );
 }
 
 /** Instantiate the adapter for a source name, or null when unknown. */

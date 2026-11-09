@@ -86,6 +86,29 @@ function shortageFixture() {
         update_type: "Updated",
         shortage_reason: "Demand increase for the drug",
         update_date: "09/30/2026",
+        initial_posting_date: "09/30/2026",
+      },
+      {
+        // Second package size of the same shortage — collapses into one event.
+        package_ndc: "00001-0002",
+        generic_name: "Cipla Test Injection",
+        company_name: "Cipla Ltd",
+        availability: "Limited Availability",
+        status: "Current",
+        update_type: "Updated",
+        update_date: "09/30/2026",
+        initial_posting_date: "09/30/2026",
+      },
+      {
+        // Years-old shortage that FDA just re-verified — not news.
+        package_ndc: "00002-0001",
+        generic_name: "Old Shortage Tablet",
+        company_name: "Cipla Ltd",
+        availability: "Limited Availability",
+        status: "Current",
+        update_type: "Reverified",
+        update_date: "09/30/2026",
+        initial_posting_date: "12/15/2021",
       },
     ],
   };
@@ -207,14 +230,59 @@ describe("OpenFdaAdapter", () => {
     expect(c.companyNames).toEqual(["Cipla Ltd"]);
   });
 
+  it("drops label supplements but keeps new-indication approvals", async () => {
+    const record = (subs: Record<string, string>[]) => ({
+      application_number: "BLA761000",
+      sponsor_name: "Aurobindo Pharma Ltd",
+      products: [{ brand_name: "Testbrand", active_ingredients: [{ name: "TESTMAB" }] }],
+      submissions: subs,
+    });
+    const fetchImpl = vi.fn(async (url: unknown) => {
+      const u = String(url);
+      const payload = u.includes("/drug/drugsfda.json")
+        ? {
+            results: [
+              record([{ submission_type: "SUPPL", submission_class_code: "LABELING", submission_status: "AP", submission_status_date: "20260928" }]),
+              { ...record([{ submission_type: "SUPPL", submission_class_code: "EFFICACY", submission_status: "AP", submission_status_date: "20260929" }]), application_number: "BLA761001" },
+              { ...record([{ submission_type: "ORIG", submission_class_code: "UNKNOWN", submission_status: "AP", submission_status_date: "20260929" }]), application_number: "BLA761002" },
+            ],
+          }
+        : { results: [] };
+      return new Response(JSON.stringify(payload), { status: 200 });
+    }) as unknown as typeof fetch;
+    const adapter = new OpenFdaAdapter(fetchImpl);
+    const docs = await adapter.fetchSince("2026-09-01");
+    const heads = (await Promise.all(docs.map((d) => adapter.normalize(d)))).flat().map((c) => c.headline);
+    expect(heads.some((h) => h.includes("BLA761000"))).toBe(false);
+    expect(heads).toHaveLength(2);
+    expect(heads).toContain("FDA approves new indication for Testbrand (TESTMAB)");
+    expect(heads).toContain("FDA approves Testbrand (TESTMAB) — BLA");
+  });
+
   it("maps a tracked unavailable product to drug_shortage", async () => {
     const adapter = new OpenFdaAdapter(stubFetch());
     const docs = await adapter.fetchSince("2026-09-01");
-    const shortageDoc = docs.find((d) => String(d.canonicalUrl).includes("00001-0001"))!;
+    const shortageDocs = docs.filter((d) => String(d.canonicalUrl).includes("shortages"));
+    // One per company + medicine; the re-verified 2021 shortage is skipped.
+    expect(shortageDocs).toHaveLength(1);
+    const shortageDoc = shortageDocs[0]!;
+    expect(String(shortageDoc.canonicalUrl)).toContain("Cipla%20Test%20Injection");
     const [c] = await adapter.normalize(shortageDoc);
     expect(c.eventType).toBe("drug_shortage");
     expect(c.companyNames).toEqual(["Cipla Ltd"]);
     expect(c.headline).toContain("Limited Availability");
     expect(c.factualSummary).toContain("Demand increase");
+    expect(c.occurredAt).toBe("2026-09-30T00:00:00.000Z");
+  });
+
+  it("queries shortages by first-posted date, not update date", async () => {
+    const fetchImpl = stubFetch();
+    const adapter = new OpenFdaAdapter(fetchImpl);
+    await adapter.fetchSince("2026-09-01");
+    const shortageUrl = (fetchImpl as unknown as { mock: { calls: unknown[][] } }).mock.calls
+      .map((c) => decodeURIComponent(String(c[0])))
+      .find((u) => u.includes("/drug/shortages.json"))!;
+    expect(shortageUrl).toContain("initial_posting_date:[2026-09-01 TO");
+    expect(shortageUrl).toContain("sort=initial_posting_date:desc");
   });
 });

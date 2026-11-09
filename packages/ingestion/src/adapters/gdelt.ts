@@ -83,6 +83,43 @@ export interface GdeltArticle {
 const PUBLISHER_PREFIX = "GDELT";
 
 /**
+ * News outlets whose articles we keep. GDELT indexes every site it crawls,
+ * including content farms and local aggregators that re-run company names in
+ * unrelated stories, so only established business, financial and pharma
+ * trade outlets are trusted. Subdomains match (e.g. "m.economictimes.com").
+ */
+export const TRUSTED_NEWS_DOMAINS: readonly string[] = [
+  // Indian business press
+  "economictimes.indiatimes.com", "economictimes.com", "livemint.com",
+  "business-standard.com", "thehindubusinessline.com", "thehindu.com",
+  "moneycontrol.com", "financialexpress.com", "cnbctv18.com",
+  "businesstoday.in", "ndtvprofit.com", "timesofindia.indiatimes.com",
+  "indianexpress.com", "hindustantimes.com", "deccanherald.com",
+  "expresspharma.in", "pharmabiz.com", "medicaldialogues.in",
+  "biospectrumindia.com",
+  // Global business and pharma trade press
+  "reuters.com", "bloomberg.com", "cnbc.com", "wsj.com", "ft.com",
+  "marketwatch.com", "barrons.com", "apnews.com", "bbc.com", "bbc.co.uk",
+  "nytimes.com", "theguardian.com", "forbes.com", "fiercepharma.com",
+  "fiercebiotech.com", "biopharmadive.com", "statnews.com", "endpts.com",
+  "biospace.com", "pharmaceutical-technology.com", "pharmatimes.com",
+  "evaluate.com", "medscape.com", "pharmaphorum.com", "in-pharmatechnologist.com",
+];
+
+/** True when a domain (or URL) belongs to a trusted outlet or its subdomain. */
+export function isTrustedNewsDomain(domainOrUrl: string | null): boolean {
+  if (!domainOrUrl) return false;
+  let host = domainOrUrl.toLowerCase().trim();
+  try {
+    if (host.includes("/")) host = new URL(host).hostname;
+  } catch {
+    return false;
+  }
+  host = host.replace(/^www\./, "");
+  return TRUSTED_NEWS_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
+}
+
+/**
  * Keyword-map a news headline to the closed taxonomy (spec §6).
  * Order matters: rejection patterns are checked before approval so "fails
  * to win approval" does not map to `regulatory_approval`. Falls back to
@@ -260,6 +297,7 @@ export class GdeltAdapter implements SourceAdapter {
       // Precision gates: English title that names a tracked company.
       if (!/^english/i.test(asText(article.language) ?? "")) continue;
       if (!matchCompanyName(title)) continue;
+      if (!isTrustedNewsDomain(asText(article.domain) ?? url)) continue;
       const publishedAt = parseSeendate(asText(article.seendate));
       if (!publishedAt || publishedAt < since) continue;
       let canonicalUrl: string;
