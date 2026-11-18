@@ -10,6 +10,7 @@
 import type { EventCard as EventCardT } from "@biocatalyst/types";
 import Link from "next/link";
 import { eventTypeLabel } from "@biocatalyst/types";
+import { ImportancePill } from "./ImportancePill";
 import { FollowButton } from "./FollowButton";
 import { Icon } from "./Icon";
 import { TimeAgo } from "./TimeAgo";
@@ -23,6 +24,7 @@ export function EventCard({ event }: { event: EventCardT }) {
   const mr = event.marketReaction;
   const pct = mr?.pctChange ?? null;
   const hasPrimary = event.sources.some((s) => s.isPrimary);
+  const whyLine = event.explainer?.whyItMatters ?? event.catalystSummary;
   const meta = [event.company?.name, event.drug?.name, event.indication, event.trial?.phase].filter(Boolean);
 
   return (
@@ -32,6 +34,7 @@ export function EventCard({ event }: { event: EventCardT }) {
           <Icon name={cat.icon} size={16} />
         </span>
         <span className="ev-type">{eventTypeLabel(event.eventType)}</span>
+        {event.importance && <ImportancePill level={event.importance} />}
         <span className="ev-time">
           <Icon name="clock" size={13} />
           <TimeAgo iso={event.occurredAt} />
@@ -59,10 +62,10 @@ export function EventCard({ event }: { event: EventCardT }) {
       {fact && <p className="ev-fact">{fact}</p>}
       {summary && <p className="ev-summary">{summary}</p>}
 
-      {event.catalystSummary && (
+      {whyLine && (
         <p className="ev-why">
           <span className="ev-why-icon"><Icon name="zap" size={13} /></span>
-          <span><strong>Why it matters:</strong> {event.catalystSummary}</span>
+          <span><strong>Why it matters:</strong> {whyLine}</span>
         </p>
       )}
 

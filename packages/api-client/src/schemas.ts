@@ -87,6 +87,13 @@ const trialPhaseSchema = z.enum([
   "Preclinical",
 ]);
 
+const explainerSchema = z.object({
+  whatHappened: z.string(),
+  whyItMatters: z.string(),
+  whatNext: z.string(),
+});
+const importanceSchema = z.enum(["high", "medium", "routine"]);
+
 const eventCardSchema = z.object({
   id: uuidOrId,
   headline: z.string(),
@@ -102,6 +109,9 @@ const eventCardSchema = z.object({
   marketReaction: marketReactionSchema.optional(),
   sources: z.array(z.object({ title: z.string(), url: z.string(), isPrimary: z.boolean() })),
   confidence: z.number(),
+  // Optional so older cached responses keep parsing.
+  explainer: explainerSchema.optional(),
+  importance: importanceSchema.optional(),
 });
 
 export const paginatedEventsSchema = z.object({
@@ -128,6 +138,8 @@ export const catalystEventSchema = z.object({
   outcome: z.enum(["primary_endpoint_met", "primary_endpoint_missed", "unknown"]).optional(),
   sources: z.array(sourceRecordSchema),
   marketReaction: marketReactionSchema.optional(),
+  explainer: explainerSchema.optional(),
+  importance: importanceSchema.optional(),
 });
 
 /* ---------- entities ---------- */
@@ -532,17 +544,22 @@ export const signInResponseSchema = z.object({
 });
 
 /* ---------- compile-time drift guards ---------- */
+/* explainer/importance are optional on the wire (older cached responses
+   lack them), so the guards accept them as optional. */
+type Wire<T> = Omit<T, "explainer" | "importance"> &
+  Partial<Pick<T & { explainer: unknown; importance: unknown }, "explainer" | "importance">>;
+
 /* Each assertion fails the build if the schema output ever stops matching
    the canonical type from @biocatalyst/types. */
 
 const _checkSecurity: Security = null as unknown as z.infer<typeof securitySchema>;
 const _checkSource: SourceRecord = null as unknown as z.infer<typeof sourceRecordSchema>;
 const _checkReaction: MarketReaction = null as unknown as z.infer<typeof marketReactionSchema>;
-const _checkEventCard: EventCard = null as unknown as z.infer<typeof eventCardSchema>;
-const _checkPaginated: Paginated<EventCard> = null as unknown as z.infer<
+const _checkEventCard: Wire<EventCard> = null as unknown as z.infer<typeof eventCardSchema>;
+const _checkPaginated: Paginated<Wire<EventCard>> = null as unknown as z.infer<
   typeof paginatedEventsSchema
 >;
-const _checkEvent: CatalystEvent = null as unknown as z.infer<typeof catalystEventSchema>;
+const _checkEvent: Wire<CatalystEvent> = null as unknown as z.infer<typeof catalystEventSchema>;
 const _checkCompany: Company = null as unknown as z.infer<typeof companySchema>;
 const _checkDrug: Drug = null as unknown as z.infer<typeof drugSchema>;
 const _checkTrial: Trial = null as unknown as z.infer<typeof trialSchema>;

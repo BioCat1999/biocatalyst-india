@@ -1,6 +1,10 @@
 import { render, fireEvent } from "@testing-library/react-native";
 import { EventCard } from "../EventCard";
-import type { EventCard as EventCardT } from "@biocatalyst/types";
+import type { EventCard as FullEventCard } from "@biocatalyst/types";
+
+// Older cached API responses lack the explainer fields, so the card accepts both.
+type EventCardT = Omit<FullEventCard, "explainer" | "importance"> &
+  Partial<Pick<FullEventCard, "explainer" | "importance">>;
 
 jest.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 
@@ -64,5 +68,27 @@ describe("EventCard", () => {
     const { getByText, queryByText } = render(<EventCard event={minimal} onPress={() => {}} />);
     expect(getByText("DCGI approves Demo Pharma's phase 3 trial")).toBeTruthy();
     expect(queryByText("+2.4%")).toBeNull();
+  });
+
+  it("shows the plain-English why line and importance pill when present", () => {
+    const withExplainer: EventCardT = {
+      ...event,
+      importance: "high",
+      explainer: {
+        whatHappened: "A regulator has approved a drug.",
+        whyItMatters: "Approval lets the drug reach patients.",
+        whatNext: "Watch for the launch date.",
+      },
+    };
+    const { getByText, queryByText } = render(<EventCard event={withExplainer} onPress={() => {}} />);
+    expect(getByText("Approval lets the drug reach patients.")).toBeTruthy();
+    expect(getByText("Major")).toBeTruthy();
+    expect(queryByText("Removes a key regulatory overhang.")).toBeNull();
+  });
+
+  it("falls back to the catalyst summary and hides the pill for older responses", () => {
+    const { getByText, queryByText } = render(<EventCard event={event} onPress={() => {}} />);
+    expect(getByText("Removes a key regulatory overhang.")).toBeTruthy();
+    expect(queryByText("Major")).toBeNull();
   });
 });

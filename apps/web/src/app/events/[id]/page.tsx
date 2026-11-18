@@ -13,6 +13,7 @@ import { SourceList } from "@/components/SourceList";
 import { IssueReportForm } from "@/components/IssueReportForm";
 import { FollowButton } from "@/components/FollowButton";
 import { EventWorkspace } from "@/components/EventWorkspace";
+import { ImportancePill } from "@/components/ImportancePill";
 import { Icon, type IconName } from "@/components/Icon";
 import { formatDateTime, formatPct } from "@/lib/format";
 import { trialUrl } from "@/lib/urls";
@@ -73,9 +74,12 @@ export default async function EventDetail({ params }: { params: Promise<{ id: st
         <nav className="breadcrumb" aria-label="Breadcrumb">
           <Link href="/">Feed</Link> / Event
         </nav>
-        <span className="ev-hero-type">
-          <Icon name={cat.icon} size={14} /> {eventTypeLabel(event.eventType)}
-        </span>
+        <div className="ev-hero-tags">
+          <span className="ev-hero-type">
+            <Icon name={cat.icon} size={14} /> {eventTypeLabel(event.eventType)}
+          </span>
+          <ImportancePill level={event.importance} onDark />
+        </div>
         <h1>{event.headline}</h1>
         <div className="ev-hero-meta">
           {primaryCompany?.securities[0] && (
@@ -110,15 +114,20 @@ export default async function EventDetail({ params }: { params: Promise<{ id: st
             </section>
           )}
 
-          {event.catalystSummary && (
-            <section className="panel" aria-label="Why this matters">
-              <PanelTitle icon="zap" color="#9a6a00" soft="#fdf3dd">Why this matters</PanelTitle>
-              <p className="why-box">
-                {event.catalystSummary}
-                <em>Neutral catalyst context — not investment advice.</em>
-              </p>
-            </section>
-          )}
+          <section className="panel" aria-label="What this means">
+            <PanelTitle icon="zap" color="#9a6a00" soft="#fdf3dd">What this means</PanelTitle>
+            <div className="why-box">
+              <dl className="explain">
+                <dt>What happened</dt>
+                <dd>{event.explainer.whatHappened}</dd>
+                <dt>Why it matters</dt>
+                <dd>{event.explainer.whyItMatters}</dd>
+                <dt>What happens next</dt>
+                <dd>{event.explainer.whatNext}</dd>
+              </dl>
+              <em>Neutral catalyst context — not investment advice.</em>
+            </div>
+          </section>
 
           <section className="panel" aria-label="Facts">
             <PanelTitle icon="grid" color="#12406b" soft="#eef2f6">At a glance</PanelTitle>
