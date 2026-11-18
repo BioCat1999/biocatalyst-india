@@ -16,6 +16,7 @@
  * Milestone 5 computes them from the fixture price series via the
  * market-reaction pipeline (see @biocatalyst/market-data and seed-db.ts).
  */
+import { eventImportance, explainEvent } from "@biocatalyst/types";
 import type {
   CatalystEvent,
   Company,
@@ -2458,7 +2459,10 @@ export function findTrial(
 /* Catalyst events (30) — all fixtures, newest first                    */
 /* ------------------------------------------------------------------ */
 
-export const events: CatalystEvent[] = [
+/** Seed events omit the read-time explainer fields; allEvents adds them. */
+type SeedEvent = Omit<CatalystEvent, "explainer" | "importance">;
+
+export const events: SeedEvent[] = [
   {
     id: "evt-20260929-sun103-p3",
     eventType: "primary_endpoint_met",
@@ -2792,7 +2796,7 @@ export const events: CatalystEvent[] = [
   },
 ];
 
-export const eventsPart2: CatalystEvent[] = [
+export const eventsPart2: SeedEvent[] = [
   {
     id: "evt-20260917-sun103-safety",
     eventType: "safety_signal",
@@ -3131,7 +3135,7 @@ export const eventsPart2: CatalystEvent[] = [
   },
 ];
 
-export const eventsPart3: CatalystEvent[] = [
+export const eventsPart3: SeedEvent[] = [
   {
     id: "evt-20260905-sunglp1-jp",
     eventType: "licensing_or_partnership",
@@ -3441,7 +3445,11 @@ export const eventsPart3: CatalystEvent[] = [
 ];
 
 /** All 30 seeded catalyst events. */
-export const allEvents: CatalystEvent[] = [...events, ...eventsPart2, ...eventsPart3];
+export const allEvents: CatalystEvent[] = [...events, ...eventsPart2, ...eventsPart3].map((e) => ({
+  ...e,
+  explainer: explainEvent(e),
+  importance: eventImportance(e),
+}));
 
 /* ------------------------------------------------------------------ */
 /* Lookup maps                                                         */

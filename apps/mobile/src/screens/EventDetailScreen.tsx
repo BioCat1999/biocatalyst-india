@@ -6,7 +6,7 @@
 import React from "react";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { eventTypeLabel } from "@biocatalyst/types";
+import { eventTypeLabel, importanceLabel } from "@biocatalyst/types";
 import { getApiClient } from "../api";
 import type { RootStackParamList } from "../navigation/types";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,6 +23,15 @@ function FactRow({ label, value }: { label: string; value: string }) {
     <View style={styles.factRow}>
       <Text style={styles.factLabel}>{label}</Text>
       <Text style={styles.factValue}>{value}</Text>
+    </View>
+  );
+}
+
+function ExplainRow({ label, text }: { label: string; text: string }) {
+  return (
+    <View style={styles.explainRow}>
+      <Text style={styles.explainLabel}>{label}</Text>
+      <Text style={styles.body}>{text}</Text>
     </View>
   );
 }
@@ -100,6 +109,16 @@ export function EventDetailScreen({ route }: Props) {
               <Ionicons name={cat.icon} size={14} color={cat.color} />
               <Text style={[styles.kicker, { color: cat.color }]}>{eventTypeLabel(event.eventType)}</Text>
             </View>
+            {event.importance ? (
+              <View
+                style={[styles.heroPill, event.importance === "high" && styles.heroPillHigh]}
+                accessibilityLabel={`Importance: ${importanceLabel(event.importance)}`}
+              >
+                <Text style={[styles.heroPillText, event.importance === "high" && styles.heroPillHighText]}>
+                  {importanceLabel(event.importance)}
+                </Text>
+              </View>
+            ) : null}
           </View>
           <Text style={styles.headline}>{event.headline}</Text>
           <View style={styles.heroMeta}>
@@ -129,7 +148,17 @@ export function EventDetailScreen({ route }: Props) {
           <Text style={styles.body}>{event.summary}</Text>
         </Card>
 
-        {event.catalystSummary ? (
+        {event.explainer ? (
+          <>
+            <SectionTitle icon="flash" color={colors.amber}>What this means</SectionTitle>
+            <Card style={styles.whyCard}>
+              <ExplainRow label="What happened" text={event.explainer.whatHappened} />
+              <ExplainRow label="Why it matters" text={event.explainer.whyItMatters} />
+              <ExplainRow label="What happens next" text={event.explainer.whatNext} />
+              <Text style={styles.disclaimer}>Neutral catalyst context — not investment advice.</Text>
+            </Card>
+          </>
+        ) : event.catalystSummary ? (
           <>
             <SectionTitle icon="flash" color={colors.amber}>Why this matters</SectionTitle>
             <Card style={styles.whyCard}>
@@ -237,7 +266,13 @@ export function EventDetailScreen({ route }: Props) {
 
 const styles = StyleSheet.create({
   hero: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xl },
-  kickerRow: { flexDirection: "row" },
+  kickerRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  heroPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: "rgba(255,255,255,0.35)" },
+  heroPillHigh: { backgroundColor: colors.white, borderColor: colors.white },
+  heroPillText: { fontSize: fontSize.xs, fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase", color: colors.navyText },
+  heroPillHighText: { color: colors.navy },
+  explainRow: { marginBottom: spacing.md },
+  explainLabel: { fontSize: 10, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase", color: colors.amber, marginBottom: 2 },
   kickerBadge: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   kicker: { fontSize: fontSize.xs, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5 },
   headline: {

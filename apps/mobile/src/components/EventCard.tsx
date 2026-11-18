@@ -14,11 +14,15 @@
 import React, { memo, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { eventTypeLabel, type EventCard as EventCardT } from "@biocatalyst/types";
+import { eventTypeLabel, importanceLabel, type EventCard as FullEventCard } from "@biocatalyst/types";
 import { colors, fontSize, radius, shadow, spacing } from "../theme";
 import { formatPct, formatRelative } from "../lib/format";
 import { dedupeEventText } from "../lib/text";
 import { eventStyle } from "../lib/categories";
+
+/** Cached responses from older API versions may lack the explainer fields. */
+type EventCardT = Omit<FullEventCard, "explainer" | "importance"> &
+  Partial<Pick<FullEventCard, "explainer" | "importance">>;
 
 /** Summaries longer than this get the inline Read more / Show less toggle. */
 const READ_MORE_THRESHOLD = 180;
@@ -46,6 +50,7 @@ function EventCardImpl({
   const mrNegative = hasPct && pct < 0;
   const mrColor = mrPositive ? colors.green : mrNegative ? colors.red : colors.muted;
   const hasPrimary = event.sources.some((s) => s.isPrimary);
+  const whyLine = event.explainer?.whyItMatters ?? event.catalystSummary;
 
   return (
     <Pressable
@@ -62,6 +67,7 @@ function EventCardImpl({
         <Text style={[styles.typeLabel, { color: cat.color }]} numberOfLines={1}>
           {eventTypeLabel(event.eventType)}
         </Text>
+        {event.importance ? <ImportancePill level={event.importance} /> : null}
         <View style={styles.timeRow}>
           <Ionicons name="time-outline" size={12} color={colors.placeholder} />
           <Text style={styles.date}>{formatRelative(event.occurredAt)}</Text>
@@ -109,12 +115,12 @@ function EventCardImpl({
         </>
       ) : null}
 
-      {event.catalystSummary ? (
+      {whyLine ? (
         <View style={styles.catalystRow}>
           <View style={styles.catalystIcon}>
             <Ionicons name="flash" size={12} color={colors.amberBright} />
           </View>
-          <Text style={styles.catalyst} numberOfLines={2}>{event.catalystSummary}</Text>
+          <Text style={styles.catalyst} numberOfLines={3}>{whyLine}</Text>
         </View>
       ) : null}
 
@@ -142,6 +148,16 @@ function EventCardImpl({
         </View>
       </View>
     </Pressable>
+  );
+}
+
+export function ImportancePill({ level }: { level: NonNullable<EventCardT["importance"]> }) {
+  const style = level === "high" ? styles.pillHigh : level === "medium" ? styles.pillMedium : styles.pillRoutine;
+  const text = level === "high" ? styles.pillHighText : level === "medium" ? styles.pillMediumText : styles.pillRoutineText;
+  return (
+    <View style={[styles.pill, style]} accessibilityLabel={`Importance: ${importanceLabel(level)}`}>
+      <Text style={[styles.pillText, text]}>{importanceLabel(level)}</Text>
+    </View>
   );
 }
 
@@ -216,4 +232,12 @@ const styles = StyleSheet.create({
   mr: { fontSize: fontSize.sm, fontWeight: "800" },
   openRow: { flexDirection: "row", alignItems: "center", gap: 3, marginLeft: "auto" },
   openText: { color: colors.teal, fontSize: fontSize.sm, fontWeight: "800" },
+  pill: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1 },
+  pillText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.4, textTransform: "uppercase" },
+  pillHigh: { backgroundColor: colors.navy, borderColor: colors.navy },
+  pillHighText: { color: colors.white },
+  pillMedium: { backgroundColor: "transparent", borderColor: colors.teal },
+  pillMediumText: { color: colors.teal },
+  pillRoutine: { backgroundColor: colors.inputBg, borderColor: colors.inputBg },
+  pillRoutineText: { color: colors.muted },
 });

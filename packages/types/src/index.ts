@@ -28,6 +28,9 @@ export const EVENT_TYPES = [
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
+import type { EventExplainer, Importance } from "./explain.js";
+export * from "./explain.js";
+
 /** Human-readable label for an event type (pure helper, safe in client code). */
 export function eventTypeLabel(t: EventType): string {
   const map: Record<EventType, string> = {
@@ -263,6 +266,10 @@ export interface CatalystEvent {
   outcome?: Outcome;
   sources: SourceRecord[];
   marketReaction?: MarketReaction;
+  /** Plain-English "what this means" lines, computed at read time. */
+  explainer: EventExplainer;
+  /** How big a deal the event is, computed at read time. */
+  importance: Importance;
 }
 
 /** Feed card contract — spec §22. */
@@ -281,6 +288,8 @@ export interface EventCard {
   marketReaction?: MarketReaction;
   sources: { title: string; url: string; isPrimary: boolean }[];
   confidence: number;
+  explainer: EventExplainer;
+  importance: Importance;
 }
 
 export interface Paginated<T> {

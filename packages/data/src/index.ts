@@ -28,6 +28,7 @@ import type {
   TrialStatus,
 } from "@biocatalyst/types";
 import { getPool } from "@biocatalyst/db";
+import { eventImportance, explainEvent, type ExplainInput } from "@biocatalyst/types";
 import { globalFootprints } from "./global-footprint.js";
 import { globalLinks } from "./global-links.js";
 import { globalCompanies } from "./global-companies.js";
@@ -36,6 +37,11 @@ import { companies as indianCompanies } from "./seed.js";
 import type { GlobalLink } from "@biocatalyst/types";
 
 export { EVENT_TYPES } from "@biocatalyst/types";
+
+/** Plain-English explainer + importance, derived at read time. */
+export function explainFields(input: ExplainInput) {
+  return { explainer: explainEvent(input), importance: eventImportance(input) };
+}
 export type { CatalystEvent, Company, Drug, Trial };
 
 /* ------------------------------------------------------------------ */
@@ -419,6 +425,12 @@ async function hydrateEvents(rows: EventRow[]): Promise<CatalystEvent[]> {
       ...(r.outcome ? { outcome: r.outcome as Outcome } : {}),
       sources: srcMap.get(r.id) ?? [],
       ...(mrMap.get(r.id) ? { marketReaction: mrMap.get(r.id)! } : {}),
+      ...explainFields({
+        eventType: r.event_type as EventType,
+        headline: r.headline,
+        phase: (r.phase ?? undefined) as TrialPhase | undefined,
+        outcome: (r.outcome ?? undefined) as Outcome | undefined,
+      }),
     };
   });
 }
@@ -1492,6 +1504,8 @@ export async function toEventCards(events: CatalystEvent[]): Promise<EventCard[]
         isPrimary: source.isPrimary,
       })),
       confidence: event.confidence,
+      explainer: event.explainer,
+      importance: event.importance,
     };
   });
 }
